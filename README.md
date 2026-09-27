@@ -10,9 +10,10 @@ YouTube Shorts를 열기 전에 한 박자 멈추고, 오늘 얼마나 봤는지
 
 App Store용 앱이나 IPA는 이 환경에서 만들 수 없습니다. Apple 개발자 계정이 없고, 리눅스에서는 아이폰에 사이드로드할 서명된 앱을 만들 수 없습니다. 아이폰에서는 Safari로 연 웹 앱을 홈 화면에 추가합니다. 추가한 뒤에는 앱처럼 전체 화면으로 열리고, 한 번 받은 뒤에는 네트워크가 없어도 동작합니다.
 
-1. 아이폰 **Safari**에서 이 주소를 엽니다.  
-   https://newport-continuing-treasures-restaurant.trycloudflare.com
-2. 페이지가 다 열릴 때까지 기다립니다. 아래쪽 **공유** 버튼(네모와 위쪽 화살표)을 누릅니다.
+임시 공개 주소는 더 이상 없습니다. 홈 화면 추가는 컴퓨터에서 이 저장소를 실행한 주소에 Safari로 접속할 수 있을 때만 됩니다.
+
+1. 아래 **컴퓨터에서 실행**대로 정적 서버를 띄웁니다.
+2. 아이폰 **Safari**에서 그 주소를 엽니다. 같은 네트워크라면 `http://컴퓨터IP:47231` 입니다. 페이지가 다 열릴 때까지 기다린 뒤, 아래쪽 **공유** 버튼(네모와 위쪽 화살표)을 누릅니다.
 3. **홈 화면에 추가**를 고르고, 오른쪽 위의 **추가**를 누릅니다.
 4. 홈 화면의 **한박자** 아이콘으로 엽니다. Safari 주소창 없이 열리면 설치가 된 것입니다.
 5. 그 다음부터는 비행기 모드에서도 홈, 통계, 설정, 쇼츠 열기가 됩니다.
@@ -23,7 +24,7 @@ Chrome 등 다른 브라우저의 바로가기는 이 독립 실행 화면이 �
 
 디버그 APK입니다. Play 스토어용이 아니라, 휴대폰에 직접 설치하는 파일입니다.
 
-- 받는 주소: https://newport-continuing-treasures-restaurant.trycloudflare.com/hanbakja-debug.apk
+- 받는 주소: https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.1.0/hanbakja-debug.apk
 - 파일 위치: `release/hanbakja-debug.apk`
 - 크기: 8,824,315바이트 (약 8.5MB)
 - 패키지 이름: `app.hanbakja.shorts`

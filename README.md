@@ -4,22 +4,61 @@ YouTube Shorts를 열기 전에 한 박자 멈추고, 오늘 얼마나 봤는지
 
 캡스톤 계획서의 흐름인 **감지 → 이유 질문 → Level 1~3 개입 → 결과 기록 → 통계와 일일 리포트**를 브라우저에서 끝까지 사용할 수 있게 만들었습니다. 실제 YouTube 앱을 가로채지는 않습니다. 홈의 **쇼츠 열기**가 Shorts에 들어가려는 순간이고, 그 다음 피드는 사용 시간을 재기 위한 시뮬레이션입니다.
 
-## 실행
+기록은 이 브라우저의 `localStorage`에만 남습니다. 계정, 서버, API 키는 없습니다.
+
+## 아이폰에 설치
+
+App Store용 앱이나 IPA는 이 환경에서 만들 수 없습니다. Apple 개발자 계정이 없고, 리눅스에서는 아이폰에 사이드로드할 서명된 앱을 만들 수 없습니다. 아이폰에서는 Safari로 연 웹 앱을 홈 화면에 추가합니다. 추가한 뒤에는 앱처럼 전체 화면으로 열리고, 한 번 받은 뒤에는 네트워크가 없어도 동작합니다.
+
+1. 아이폰 **Safari**에서 이 주소를 엽니다.  
+   https://newport-continuing-treasures-restaurant.trycloudflare.com
+2. 페이지가 다 열릴 때까지 기다립니다. 아래쪽 **공유** 버튼(네모와 위쪽 화살표)을 누릅니다.
+3. **홈 화면에 추가**를 고르고, 오른쪽 위의 **추가**를 누릅니다.
+4. 홈 화면의 **한박자** 아이콘으로 엽니다. Safari 주소창 없이 열리면 설치가 된 것입니다.
+5. 그 다음부터는 비행기 모드에서도 홈, 통계, 설정, 쇼츠 열기가 됩니다.
+
+Chrome 등 다른 브라우저의 바로가기는 이 독립 실행 화면이 되지 않습니다. Safari를 쓰세요.
+
+## 안드로이드에 설치
+
+디버그 APK입니다. Play 스토어용이 아니라, 휴대폰에 직접 설치하는 파일입니다.
+
+- 받는 주소: https://newport-continuing-treasures-restaurant.trycloudflare.com/hanbakja-debug.apk
+- 파일 위치: `release/hanbakja-debug.apk`
+- 크기: 8,824,315바이트 (약 8.5MB)
+- 패키지 이름: `app.hanbakja.shorts`
+
+1. 휴대폰 브라우저에서 위 APK 주소를 엽니다.
+2. 다운로드가 끝나면 알림이나 다운로드 목록에서 파일을 엽니다.
+3. **출처를 알 수 없는 앱** 설치를 허용하라는 안내가 나오면, 이 브라우저에 대해 허용합니다.
+4. 설치 후 홈 화면의 **한박자**로 엽니다. 설치본은 인터넷 없이도 동작합니다.
+
+## 컴퓨터에서 실행
 
 ```bash
 npm install
-npm run dev
+npm run icons
+npm run build
+npm run serve:static
 ```
 
-개발 서버는 `http://127.0.0.1:47231` 입니다. 같은 네트워크의 휴대폰에서는 컴퓨터의 주소와 `47231` 포트로 열 수 있습니다.
-
-기록은 이 브라우저의 `localStorage`에만 남습니다. 계정, 서버, API 키는 없습니다.
+정적 서버는 `http://127.0.0.1:47231` 입니다. 개발 중 화면을 고칠 때는 `npm run dev`를 씁니다.
 
 로직 확인:
 
 ```bash
 node --experimental-strip-types --test lib/logic.test.ts
 ```
+
+APK를 다시 만들려면 Android SDK가 필요합니다. SDK를 둔 뒤:
+
+```bash
+npm run build
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+결과 파일은 `android/app/build/outputs/apk/debug/app-debug.apk` 입니다.
 
 ## 쓰는 법
 
@@ -56,6 +95,7 @@ node --experimental-strip-types --test lib/logic.test.ts
 - Room 데이터베이스. 같은 항목을 브라우저 로컬 저장소에 둡니다.
 - WorkManager처럼 앱이 꺼진 뒤에도 저녁에 알림을 보장하는 일. 탭이 열려 있을 때의 브라우저 알림과 앱 안 리포트로 대신합니다.
 - iOS 스크린 타임이나 시스템 VPN으로 다른 앱을 막는 일
+- Apple 개발자 계정 없이 만드는 아이폰 설치 파일(IPA). 아이폰은 홈 화면 웹 앱으로 설치합니다.
 
 계획서에서 1차 범위가 아니었던 Instagram Reels와 TikTok은 넣지 않았습니다. 주간·월간 분석과 AI 추천도 범위 밖입니다.
 

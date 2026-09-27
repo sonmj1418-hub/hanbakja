@@ -17,6 +17,15 @@
 /.next/
 /out/
 
+# android build output
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+*.keystore
+!android/app/debug.keystore
+
 # production
 /build
 

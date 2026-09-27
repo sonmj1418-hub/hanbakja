@@ -278,6 +278,23 @@ export function SettingsView() {
       </section>
 
       <section className="space-y-2 text-sm leading-6 text-muted-foreground">
+        <h2 className="text-base font-medium text-foreground">폰에 설치</h2>
+        <p>
+          아이폰은 Safari에서 이 페이지를 연 뒤 공유 버튼을 누르고{" "}
+          <strong className="font-medium text-foreground">홈 화면에 추가</strong>를
+          고르세요. 한 번 열린 뒤에는 네트워크가 없어도 홈 화면 아이콘으로 열립니다.
+        </p>
+        <p>
+          안드로이드는{" "}
+          <a className="underline" href="/hanbakja-debug.apk">
+            한박자 APK
+          </a>
+          를 받아 설치하세요. 출처를 알 수 없는 앱 설치를 허용해야 합니다. 설치한
+          앱은 인터넷 없이도 동작합니다.
+        </p>
+      </section>
+
+      <section className="space-y-2 text-sm leading-6 text-muted-foreground">
         <h2 className="text-base font-medium text-foreground">이 앱이 하지 않는 일</h2>
         <p>
           실제 YouTube 앱의 화면을 읽거나 프로세스를 종료하지 않습니다. Android

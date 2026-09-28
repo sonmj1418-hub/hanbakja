@@ -17,6 +17,16 @@ public class GuardPlugin extends Plugin {
         ret.put("enabled", isServiceEnabled());
         ret.put("pendingTarget", GuardState.pendingTarget(getContext()));
         ret.put("watching", GuardState.isWatching(getContext()));
+        ret.put("blockerEnabled", GuardState.isBlockerEnabled(getContext()));
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void setBlocker(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", true));
+        GuardState.setBlockerEnabled(getContext(), enabled);
+        JSObject ret = new JSObject();
+        ret.put("blockerEnabled", GuardState.isBlockerEnabled(getContext()));
         call.resolve(ret);
     }
 

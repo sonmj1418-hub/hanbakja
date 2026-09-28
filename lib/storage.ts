@@ -16,7 +16,6 @@ export function defaultSettings(): Settings {
     level2Threshold: 20,
     level3Threshold: 20,
     notificationTime: "21:00",
-    timeScale: 1,
     notifyEnabled: true,
   };
 }
@@ -69,8 +68,6 @@ function readSettings(value: unknown): Settings | null {
   const defaults = defaultSettings();
   const level1 = Number(raw.level1Threshold ?? defaults.level1Threshold);
   const level3 = Number(raw.level3Threshold ?? defaults.level3Threshold);
-  const scale = raw.timeScale;
-  const timeScale = scale === 30 || scale === 60 || scale === 1 ? scale : 1;
   const notificationTime =
     typeof raw.notificationTime === "string" &&
     /^\d{2}:\d{2}$/.test(raw.notificationTime)
@@ -84,7 +81,6 @@ function readSettings(value: unknown): Settings | null {
     level2Threshold: level3,
     level3Threshold: level3,
     notificationTime,
-    timeScale,
     notifyEnabled: raw.notifyEnabled !== false,
   };
 }

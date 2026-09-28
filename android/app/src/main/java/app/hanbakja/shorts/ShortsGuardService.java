@@ -45,6 +45,10 @@ public class ShortsGuardService extends AccessibilityService {
     };
 
     static void requestLeave(Context context, String target) {
+        if (!GuardState.isBlockerEnabled(context)) {
+            GuardState.idleAndSuppress(context, 500);
+            return;
+        }
         GuardState.idleAndSuppress(context, 2500);
         if ("youtube".equals(target)) {
             bringSelf(context);
@@ -59,6 +63,7 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     static void requestWatch(Context context, String target) {
+        if (!GuardState.isBlockerEnabled(context)) return;
         GuardState.beginWatch(context, target);
         if ("youtube".equals(target)) openYoutubeShorts(context);
     }
@@ -83,6 +88,10 @@ public class ShortsGuardService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (!GuardState.isBlockerEnabled(this)) {
+            closing = false;
+            return;
+        }
         if (event == null || destroyed || closing || GuardState.isSuppressed(this)) return;
         CharSequence packageChars = event.getPackageName();
         if (packageChars == null) return;
@@ -130,7 +139,7 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     private void onTargetScreen(String kind) {
-        if (GuardState.isSuppressed(this) || closing) return;
+        if (!GuardState.isBlockerEnabled(this) || GuardState.isSuppressed(this) || closing) return;
         if (kind.equals(GuardState.watchTarget(this))) return;
         long elapsed = SystemClock.elapsedRealtime();
         if (GuardState.isPrompting(this, kind)) {
@@ -154,7 +163,7 @@ public class ShortsGuardService extends AccessibilityService {
      * with Back, then open Focus on. Reels: leave the player only, not Instagram.
      */
     private void closePlayerThenPrompt(String kind) {
-        if (closing) return;
+        if (closing || !GuardState.isBlockerEnabled(this)) return;
         closing = true;
         GuardState.suppress(this, 3000);
         GuardState.startPrompt(this, kind);
@@ -163,7 +172,7 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     private void stepAway(String kind, int attempt) {
-        if (destroyed) {
+        if (destroyed || !GuardState.isBlockerEnabled(this)) {
             closing = false;
             return;
         }
@@ -214,7 +223,7 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     private void tickWatch() {
-        if (closing || GuardState.isSuppressed(this)) return;
+        if (!GuardState.isBlockerEnabled(this) || closing || GuardState.isSuppressed(this)) return;
         String kind = GuardState.watchTarget(this);
         if (kind.isEmpty()) {
             missedWatchChecks = 0;

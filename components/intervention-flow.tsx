@@ -46,13 +46,11 @@ type Step =
 export function InterventionFlow({
   level,
   usageSeconds,
-  timeScale,
   onFinish,
   sourceLabel = null,
 }: {
   level: Level;
   usageSeconds: number;
-  timeScale: number;
   onFinish: (input: InterventionInput) => void;
   sourceLabel?: string | null;
 }) {
@@ -464,12 +462,6 @@ export function InterventionFlow({
             누적 {formatClock(usageSeconds)}. 한 번 더 이어지면 금방 더 길어집니다.
             이번 시청을 끝내거나, 일정 시간 쇼츠 열기를 막을 수 있습니다.
           </p>
-          {timeScale !== 1 ? (
-            <p className="mt-3 text-xs leading-5 text-[oklch(0.78_0.04_70)]">
-              시연 가속 {timeScale}배입니다. 10분 차단은 실제로{" "}
-              {Math.max(1, Math.round((10 * 60) / timeScale))}초 동안 유지됩니다.
-            </p>
-          ) : null}
           <div className="mt-6 flex flex-col gap-2">
             <Button
               type="button"
@@ -524,10 +516,8 @@ export function InterventionFlow({
             {blockMinutes === 60 ? "1시간" : `${blockMinutes}분`} 동안 막을까요?
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            이 시간이 끝나기 전에는 쇼츠 피드가 열리지 않습니다.
-            {timeScale !== 1
-              ? ` 가속이 켜져 있어 실제 대기는 ${formatClock((blockMinutes * 60) / timeScale)}입니다.`
-              : ""}
+            이 시간이 끝나기 전에는 쇼츠 피드가 열리지 않습니다. 차단 시간은 실제
+            분입니다.
           </p>
           <div className="mt-auto flex flex-col gap-2 pt-8">
             <Button

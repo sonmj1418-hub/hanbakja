@@ -33,7 +33,6 @@ describe("settings", () => {
       level1Threshold: 20,
       level3Threshold: 10,
       notificationTime: "21:00",
-      timeScale: 1,
     });
     assert.ok(message);
   });
@@ -44,7 +43,6 @@ describe("settings", () => {
         level1Threshold: 1,
         level3Threshold: 2,
         notificationTime: "09:30:00",
-        timeScale: 60,
       }),
       null,
     );
@@ -52,11 +50,10 @@ describe("settings", () => {
 });
 
 describe("usage flush", () => {
-  it("adds scaled time only while visible", () => {
+  it("adds real seconds only while visible", () => {
     const start = 1_000;
     const data: AppData = {
       ...defaultData(),
-      settings: { ...settings, timeScale: 60 },
       activeSession: {
         usageId: "u1",
         date: "2026-09-27",
@@ -81,20 +78,20 @@ describe("usage flush", () => {
     const hidden = applyFlush(data, false, start + 500);
     assert.equal(hidden.activeSession?.duration, 0);
     const visible = applyFlush(hidden, true, start + 1500);
-    assert.equal(visible.activeSession?.duration, 60);
+    assert.equal(visible.activeSession?.duration, 1);
     const done = finalizeSession(visible, start + 1500);
     assert.equal(done.activeSession, null);
-    assert.equal(done.usageLogs[0]?.duration, 60);
+    assert.equal(done.usageLogs[0]?.duration, 1);
   });
 });
 
 describe("block and report", () => {
-  it("shortens a block when time is scaled", () => {
+  it("keeps a block for real minutes", () => {
     const now = Date.parse("2026-09-27T12:00:00");
-    const until = blockUntilFromMinutes(10, 60, now);
-    assert.equal(Date.parse(until) - now, 10_000);
-    assert.equal(isBlocked({ until, minutes: 10 }, now + 9_000), true);
-    assert.equal(isBlocked({ until, minutes: 10 }, now + 11_000), false);
+    const until = blockUntilFromMinutes(10, now);
+    assert.equal(Date.parse(until) - now, 600_000);
+    assert.equal(isBlocked({ until, minutes: 10 }, now + 599_000), true);
+    assert.equal(isBlocked({ until, minutes: 10 }, now + 601_000), false);
   });
 
   it("treats the report as due at the configured minute", () => {
@@ -189,10 +186,9 @@ describe("stats", () => {
 });
 
 describe("guarded watch time", () => {
-  it("adds real seconds onto the open session using the time scale", () => {
+  it("adds real seconds onto the open session", () => {
     const started = {
       ...defaultData(),
-      settings: { ...settings, timeScale: 60 as const },
       activeSession: {
         usageId: "u1",
         date: "2026-09-28",
@@ -215,8 +211,8 @@ describe("guarded watch time", () => {
       ],
     };
     const next = addExternalWatch(started, 3.2, true, Date.parse("2026-09-28T00:00:04.000Z"));
-    assert.equal(next.activeSession?.duration, 5 + 3 * 60);
-    assert.equal(next.usageLogs[0]?.duration, 5 + 180);
+    assert.equal(next.activeSession?.duration, 8);
+    assert.equal(next.usageLogs[0]?.duration, 8);
   });
 
   it("keeps a separate log when there is no open guard session", () => {

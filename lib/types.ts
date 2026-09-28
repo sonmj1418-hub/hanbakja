@@ -13,7 +13,6 @@ export type Settings = {
   level2Threshold: number;
   level3Threshold: number;
   notificationTime: string;
-  timeScale: 1 | 30 | 60;
   notifyEnabled: boolean;
 };
 

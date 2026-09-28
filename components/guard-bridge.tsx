@@ -24,7 +24,11 @@ export function GuardBridge() {
       try {
         const status = await HanbakjaGuard.getStatus();
         if (stopped) return;
-        if (isGuardTarget(status.pendingTarget) && !pathname.startsWith("/watch")) {
+        if (
+          status.blockerEnabled &&
+          isGuardTarget(status.pendingTarget) &&
+          !pathname.startsWith("/watch")
+        ) {
           router.push(`/watch?guard=${status.pendingTarget}`);
         }
         const taken = await HanbakjaGuard.takeWatch();

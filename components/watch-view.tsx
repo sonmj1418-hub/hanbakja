@@ -206,7 +206,6 @@ export function WatchView() {
     <InterventionFlow
       level={level}
       usageSeconds={entryUsage}
-      timeScale={store.data.settings.timeScale}
       onFinish={finish}
       sourceLabel={sourceLabel}
     />

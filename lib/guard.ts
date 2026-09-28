@@ -7,10 +7,12 @@ export type GuardStatus = {
   enabled: boolean;
   pendingTarget: string;
   watching: boolean;
+  blockerEnabled: boolean;
 };
 
 export interface HanbakjaGuardPlugin {
   getStatus(): Promise<GuardStatus>;
+  setBlocker(options: { enabled: boolean }): Promise<void>;
   takeWatch(): Promise<{ seconds: number; ended: boolean }>;
   finish(options: { outcome: GuardOutcome; target: GuardTarget }): Promise<void>;
   openSettings(): Promise<void>;

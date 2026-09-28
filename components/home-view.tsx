@@ -68,13 +68,6 @@ export function HomeView() {
 
       <GuardPanel />
 
-      {data.settings.timeScale !== 1 ? (
-        <p className="rounded-2xl bg-accent px-4 py-3 text-sm text-accent-foreground">
-          시연 가속 {data.settings.timeScale}배입니다. 실제 1초가 사용 시간{" "}
-          {data.settings.timeScale}초로 기록되고, 차단 시간도 같은 비율로 짧아집니다.
-        </p>
-      ) : null}
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
         <Card className="gap-5">
           <CardHeader>
@@ -117,9 +110,6 @@ export function HomeView() {
                 <p className="font-medium text-destructive">쇼츠 열기가 차단되어 있습니다</p>
                 <p className="mt-1 tabular-nums text-foreground">
                   남은 시간 {formatClock(remaining)}
-                  {data.settings.timeScale !== 1
-                    ? ` · 선택한 차단 ${data.block.minutes}분`
-                    : ""}
                 </p>
               </div>
             ) : null}

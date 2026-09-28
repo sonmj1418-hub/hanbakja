@@ -18,13 +18,18 @@ function Mark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center gap-[3px] rounded-lg bg-foreground",
+        "inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#2c261f]",
         className,
       )}
       aria-hidden
     >
-      <span className="h-3.5 w-[3px] rounded-full bg-background" />
-      <span className="h-3.5 w-[3px] rounded-full bg-primary" />
+      <span className="relative flex h-[22px] w-[14px] items-center justify-center rounded-[4px] bg-[#f6f1e7]">
+        <span className="absolute inset-[2px] rounded-[2px] bg-[#2c261f]" />
+        <span className="relative z-10 flex gap-[2px]">
+          <span className="h-[7px] w-[2px] rounded-full bg-[#c45c3e]" />
+          <span className="h-[7px] w-[2px] rounded-full bg-[#c45c3e]" />
+        </span>
+      </span>
     </span>
   );
 }

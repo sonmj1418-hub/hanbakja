@@ -13,6 +13,7 @@ public final class GuardState {
     private static final String KEY_SUPPRESS = "suppress_until";
     private static final String KEY_SECONDS = "watch_seconds";
     private static final String KEY_ENDED = "watch_ended";
+    private static final String KEY_BLOCKER = "blocker_enabled";
 
     private static final String IDLE = "idle";
     private static final String PROMPTING = "prompting";
@@ -24,6 +25,26 @@ public final class GuardState {
 
     private static SharedPreferences prefs(Context context) {
         return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    public static boolean isBlockerEnabled(Context context) {
+        synchronized (LOCK) {
+            return prefs(context).getBoolean(KEY_BLOCKER, true);
+        }
+    }
+
+    /** Off clears a pending prompt or watch so the Level flow does not open. */
+    public static void setBlockerEnabled(Context context, boolean enabled) {
+        synchronized (LOCK) {
+            SharedPreferences prefs = prefs(context);
+            SharedPreferences.Editor editor = prefs.edit().putBoolean(KEY_BLOCKER, enabled);
+            if (!enabled) {
+                String mode = prefs.getString(KEY_MODE, IDLE);
+                editor.putString(KEY_MODE, IDLE).putString(KEY_TARGET, "");
+                if (WATCHING.equals(mode)) editor.putBoolean(KEY_ENDED, true);
+            }
+            editor.commit();
+        }
     }
 
     public static void startPrompt(Context context, String target) {

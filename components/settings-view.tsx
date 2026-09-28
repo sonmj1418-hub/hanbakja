@@ -15,7 +15,6 @@ type Draft = {
   level1: string;
   level3: string;
   notificationTime: string;
-  timeScale: 1 | 30 | 60;
   notifyEnabled: boolean;
 };
 
@@ -24,7 +23,6 @@ function toDraft(settings: Settings): Draft {
     level1: String(settings.level1Threshold),
     level3: String(settings.level3Threshold),
     notificationTime: settings.notificationTime,
-    timeScale: settings.timeScale,
     notifyEnabled: settings.notifyEnabled,
   };
 }
@@ -62,7 +60,6 @@ export function SettingsView() {
       level1Threshold,
       level3Threshold,
       notificationTime: notificationTime ?? form.notificationTime,
-      timeScale: form.timeScale,
     });
     if (message || !notificationTime) {
       setError(message ?? "알림 시각을 다시 확인해 주세요.");
@@ -74,7 +71,6 @@ export function SettingsView() {
       level2Threshold: level3Threshold,
       level3Threshold,
       notificationTime,
-      timeScale: form.timeScale,
       notifyEnabled: form.notifyEnabled,
     });
     setError(null);
@@ -84,7 +80,7 @@ export function SettingsView() {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
       <header>
-        <p className="text-sm text-muted-foreground">기준, 알림, 시연</p>
+        <p className="text-sm text-muted-foreground">기준, 알림</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">설정</h1>
       </header>
 
@@ -150,27 +146,6 @@ export function SettingsView() {
             onCheckedChange={(checked) => update({ notifyEnabled: checked })}
           />
         </div>
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">시간 가속</legend>
-          <div className="grid grid-cols-3 gap-2">
-            {([1, 30, 60] as const).map((scale) => (
-              <Button
-                key={scale}
-                type="button"
-                variant={form.timeScale === scale ? "default" : "outline"}
-                className="h-11"
-                aria-pressed={form.timeScale === scale}
-                onClick={() => update({ timeScale: scale })}
-              >
-                {scale === 1 ? "실제 1배" : `${scale}배`}
-              </Button>
-            ))}
-          </div>
-          <p className="text-xs leading-5 text-muted-foreground">
-            시연용입니다. 60배에서는 실제 1초가 사용 시간 1분으로 쌓이고, 10분 차단은
-            실제 10초입니다.
-          </p>
-        </fieldset>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}
@@ -291,7 +266,7 @@ export function SettingsView() {
           안드로이드는{" "}
           <a
             className="underline"
-            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.4.0/hanbakja-debug.apk"
+            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.5.0/hanbakja-debug.apk"
           >
             Focus on APK
           </a>

@@ -269,7 +269,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...current,
         block: {
           minutes,
-          until: blockUntilFromMinutes(minutes, current.settings.timeScale),
+          until: blockUntilFromMinutes(minutes),
         },
       }));
     },

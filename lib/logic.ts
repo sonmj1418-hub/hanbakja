@@ -182,12 +182,8 @@ export function blockRemainingSeconds(
   return Math.max(0, (new Date(block.until).getTime() - now) / 1000);
 }
 
-export function blockUntilFromMinutes(
-  minutes: number,
-  timeScale: number,
-  now = Date.now(),
-): string {
-  const realMs = (minutes * 60 * 1000) / Math.max(1, timeScale);
+export function blockUntilFromMinutes(minutes: number, now = Date.now()): string {
+  const realMs = minutes * 60 * 1000;
   return new Date(now + realMs).toISOString();
 }
 
@@ -215,7 +211,6 @@ export function validateSettings(input: {
   level1Threshold: number;
   level3Threshold: number;
   notificationTime: string;
-  timeScale: number;
 }): string | null {
   if (
     !Number.isInteger(input.level1Threshold) ||
@@ -233,9 +228,6 @@ export function validateSettings(input: {
   }
   if (!normalizeClock(input.notificationTime)) {
     return "알림 시각을 다시 확인해 주세요.";
-  }
-  if (input.timeScale !== 1 && input.timeScale !== 30 && input.timeScale !== 60) {
-    return "시간 가속은 1배, 30배, 60배 중에서 고르세요.";
   }
   return null;
 }
@@ -313,7 +305,7 @@ export function applyFlush(
   const session = data.activeSession;
   if (!session) return data;
   const elapsedMs = Math.min(2000, Math.max(0, now - session.lastTickAt));
-  const addSeconds = visible ? (elapsedMs / 1000) * data.settings.timeScale : 0;
+  const addSeconds = visible ? elapsedMs / 1000 : 0;
   const duration = session.duration + addSeconds;
   const activeSession = { ...session, duration, lastTickAt: now };
   const usageLogs = data.usageLogs.map((log) =>
@@ -338,7 +330,7 @@ export function addExternalWatch(
 ): AppData {
   const whole = Math.floor(realSeconds);
   if (whole <= 0) return data;
-  const add = whole * data.settings.timeScale;
+  const add = whole;
   const endTime = new Date(now).toISOString();
   if (intoActiveSession && data.activeSession) {
     const duration = data.activeSession.duration + add;

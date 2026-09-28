@@ -20,11 +20,14 @@ public class GuardScreensTest {
                 Collections.singletonList("com.google.android.youtube:id/reel_player_page_container")
             )
         );
-        assertEquals(
-            "youtube",
+        assertNull(
             GuardScreens.classify(
                 "com.google.android.youtube",
-                Arrays.asList("com.google.android.youtube:id/watch_player", "com.google.android.youtube:id/reel_recycler")
+                Arrays.asList(
+                    "com.google.android.youtube:id/watch_player",
+                    "com.google.android.youtube:id/reel_recycler",
+                    "com.google.android.youtube:id/shorts_shelf"
+                )
             )
         );
         assertNull(
@@ -50,15 +53,13 @@ public class GuardScreensTest {
         assertNull(GuardScreens.selectedTabKind("Shorts", false));
         assertNull(GuardScreens.selectedTabKind("shortcuts", true));
         assertNull(GuardScreens.selectedTabKind("오늘 본 릴스 캡션이 길어서 저장하면 안 되는 문장", true));
-        assertEquals(
-            "youtube",
+        assertNull(
             GuardScreens.classify(
                 "com.google.android.youtube",
                 new GuardScreens.Hit(Collections.emptyList(), true, false, false)
             )
         );
-        assertEquals(
-            "instagram",
+        assertNull(
             GuardScreens.classify(
                 "com.instagram.android",
                 new GuardScreens.Hit(Collections.emptyList(), false, true, false)
@@ -76,11 +77,16 @@ public class GuardScreensTest {
     public void detectsClipsClassButNotStoryClass() {
         assertTrue(GuardScreens.viewClassIsReels("com.instagram.clips.ClipsViewer"));
         assertFalse(GuardScreens.viewClassIsReels("com.instagram.reels.ReelViewer"));
-        assertEquals(
-            "instagram",
+        assertNull(
             GuardScreens.classify(
                 "com.instagram.android",
                 new GuardScreens.Hit(Collections.emptyList(), false, false, true)
+            )
+        );
+        assertNull(
+            GuardScreens.classify(
+                "com.instagram.android",
+                Collections.singletonList("com.instagram.android:id/clips_video_container")
             )
         );
     }

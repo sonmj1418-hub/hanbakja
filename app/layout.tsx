@@ -13,16 +13,16 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "한박자",
-    template: "%s · 한박자",
+    default: "Focus on",
+    template: "%s · Focus on",
   },
   description:
     "YouTube Shorts를 열기 전에 이유를 묻고, 오늘 사용량에 따라 단계적으로 개입하는 사용 조절 앱.",
-  applicationName: "한박자",
+  applicationName: "Focus on",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "한박자",
+    title: "Focus on",
     statusBarStyle: "default",
   },
   icons: {
@@ -49,7 +49,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="min-h-full">
-        <noscript>한박자는 자바스크립트가 필요합니다.</noscript>
+        <noscript>Focus on은 자바스크립트가 필요합니다.</noscript>
         <StoreProvider>
           <PwaRegister />
           <GuardBridge />

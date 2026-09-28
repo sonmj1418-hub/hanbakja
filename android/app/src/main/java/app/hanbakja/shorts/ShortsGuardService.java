@@ -1,10 +1,15 @@
 package app.hanbakja.shorts;
 
 import android.accessibilityservice.AccessibilityService;
+import android.app.ActivityManager;
+import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.lang.ref.WeakReference;
@@ -13,17 +18,19 @@ import java.util.List;
 
 /**
  * Notices the YouTube Shorts player and the Instagram Reels player, then opens
- * 한박자. View resource ids are used only to tell those players apart. Text,
- * passwords, messages, and other apps are not read or stored.
+ * Focus on. Resource ids and activity class names only. Screen text is not
+ * stored or uploaded.
  */
 public class ShortsGuardService extends AccessibilityService {
     private static WeakReference<ShortsGuardService> instance = new WeakReference<>(null);
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private int missedWatchChecks;
+    private int missedAway;
     private long lastScanUptime;
     private long lastLaunchElapsed;
     private boolean destroyed;
+    private boolean closing;
 
     private final Runnable watchTick = new Runnable() {
         @Override
@@ -37,14 +44,23 @@ public class ShortsGuardService extends AccessibilityService {
         }
     };
 
-    static void requestLeave(android.content.Context context) {
-        GuardState.idleAndSuppress(context, 4000);
-        ShortsGuardService service = instance.get();
-        if (service != null) {
-            service.leaveScreenAndReturn();
-        } else {
-            bringHome(context);
+    static void requestLeave(Context context, String target) {
+        GuardState.idleAndSuppress(context, 2500);
+        if ("youtube".equals(target)) {
+            bringSelf(context);
+            return;
         }
+        if (context instanceof android.app.Activity) {
+            ((android.app.Activity) context).moveTaskToBack(true);
+        }
+        ShortsGuardService service = instance.get();
+        if (service != null) service.leaveReelsThenReturn();
+        else bringSelf(context);
+    }
+
+    static void requestWatch(Context context, String target) {
+        GuardState.beginWatch(context, target);
+        if ("youtube".equals(target)) openYoutubeShorts(context);
     }
 
     @Override
@@ -67,7 +83,7 @@ public class ShortsGuardService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event == null || destroyed) return;
+        if (event == null || destroyed || closing || GuardState.isSuppressed(this)) return;
         CharSequence packageChars = event.getPackageName();
         if (packageChars == null) return;
         String packageName = packageChars.toString();
@@ -82,38 +98,123 @@ public class ShortsGuardService extends AccessibilityService {
             return;
         }
         lastScanUptime = now;
+
+        String activePackage = activePackage();
+        if (activePackage == null || !GuardScreens.isWatchedPackage(activePackage)) return;
+
+        String kind = null;
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-            && GuardScreens.YOUTUBE.equals(packageName)
+            && GuardScreens.YOUTUBE.equals(activePackage)
             && GuardScreens.youtubeClassIsShorts(String.valueOf(event.getClassName()))) {
-            onTargetScreen("youtube");
+            kind = "youtube";
+        } else if (activePackage.equals(packageName)) {
+            kind = classifyActiveWindow();
+        }
+        if (kind == null) {
+            noteAway(activePackage);
             return;
         }
-        String kind = classifyEvent(event);
-        if (kind == null) kind = classifyActiveWindow();
-        if (kind == null) return;
+        missedAway = 0;
         onTargetScreen(kind);
     }
 
     @Override
     public void onInterrupt() {}
 
+    private void noteAway(String packageName) {
+        missedAway += 1;
+        if (missedAway < 2) return;
+        missedAway = 0;
+        String kind = GuardScreens.YOUTUBE.equals(packageName) ? "youtube" : "instagram";
+        GuardState.clearPlayerSession(this, kind);
+    }
+
     private void onTargetScreen(String kind) {
-        if (GuardState.isSuppressed(this)) return;
+        if (GuardState.isSuppressed(this) || closing) return;
         if (kind.equals(GuardState.watchTarget(this))) return;
+        long elapsed = SystemClock.elapsedRealtime();
         if (GuardState.isPrompting(this, kind)) {
-            long elapsed = SystemClock.elapsedRealtime();
             if (elapsed - lastLaunchElapsed > 1500) {
                 lastLaunchElapsed = elapsed;
-                launchApp();
+                if ("youtube".equals(kind)) closePlayerThenPrompt(kind);
+                else bringSelfToFront();
             }
             return;
         }
+        lastLaunchElapsed = elapsed;
+        if ("youtube".equals(kind)) closePlayerThenPrompt(kind);
+        else {
+            GuardState.startPrompt(this, kind);
+            bringSelfToFront();
+        }
+    }
+
+    /**
+     * YouTube keeps playing if it is only sent backward. Leave the Shorts task
+     * with Back, then open Focus on. Reels: leave the player only, not Instagram.
+     */
+    private void closePlayerThenPrompt(String kind) {
+        if (closing) return;
+        closing = true;
+        GuardState.suppress(this, 3000);
         GuardState.startPrompt(this, kind);
-        lastLaunchElapsed = SystemClock.elapsedRealtime();
-        launchApp();
+        if ("youtube".equals(kind)) pausePlayback();
+        mainHandler.post(() -> stepAway(kind, 0));
+    }
+
+    private void stepAway(String kind, int attempt) {
+        if (destroyed) {
+            closing = false;
+            return;
+        }
+        String packageName = activePackage();
+        boolean youtube = "youtube".equals(kind);
+        boolean stillApp = youtube
+            ? GuardScreens.YOUTUBE.equals(packageName)
+            : GuardScreens.INSTAGRAM.equals(packageName);
+        boolean stillPlayer = kind.equals(classifyActiveWindow());
+        int limit = youtube ? 6 : 3;
+        boolean keepBacking = youtube ? stillApp && attempt < limit : stillPlayer && attempt < limit;
+        if (packageName == null && attempt < limit + 2) {
+            mainHandler.postDelayed(() -> stepAway(kind, attempt + 1), 200);
+            return;
+        }
+        if (keepBacking) {
+            performGlobalAction(GLOBAL_ACTION_BACK);
+            mainHandler.postDelayed(() -> stepAway(kind, attempt + 1), 280);
+            return;
+        }
+        bringSelfToFront();
+        if (youtube) {
+            mainHandler.postDelayed(() -> {
+                if (!destroyed) stopYoutubeProcess();
+                closing = false;
+            }, 350);
+            return;
+        }
+        closing = false;
+    }
+
+    private void leaveReelsThenReturn() {
+        mainHandler.postDelayed(() -> stepAway("instagram", 0), 350);
+    }
+
+    private void pausePlayback() {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) return;
+        long now = SystemClock.uptimeMillis();
+        audio.dispatchMediaKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE, 0));
+        audio.dispatchMediaKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PAUSE, 0));
+    }
+
+    private void stopYoutubeProcess() {
+        ActivityManager activities = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (activities == null) return;
+        activities.killBackgroundProcesses(GuardScreens.YOUTUBE);
     }
 
     private void tickWatch() {
+        if (closing || GuardState.isSuppressed(this)) return;
         String kind = GuardState.watchTarget(this);
         if (kind.isEmpty()) {
             missedWatchChecks = 0;
@@ -125,20 +226,16 @@ public class ShortsGuardService extends AccessibilityService {
             GuardState.addWatchSecond(this);
             return;
         }
+        String packageName = activePackage();
+        boolean sameApp = ("youtube".equals(kind) && GuardScreens.YOUTUBE.equals(packageName))
+            || ("instagram".equals(kind) && GuardScreens.INSTAGRAM.equals(packageName));
+        if (!sameApp && packageName != null && !GuardScreens.isWatchedPackage(packageName)) {
+            return;
+        }
         missedWatchChecks += 1;
         if (missedWatchChecks >= 2) {
             missedWatchChecks = 0;
             GuardState.endWatch(this);
-        }
-    }
-
-    private String classifyEvent(AccessibilityEvent event) {
-        AccessibilityNodeInfo source = event.getSource();
-        if (source == null) return null;
-        try {
-            return classifyNode(source);
-        } finally {
-            source.recycle();
         }
     }
 
@@ -160,35 +257,6 @@ public class ShortsGuardService extends AccessibilityService {
         return GuardScreens.classify(packageName, inspect(node));
     }
 
-    private void leaveScreenAndReturn() {
-        mainHandler.postDelayed(() -> waitForTargetThenLeave(0), 400);
-    }
-
-    private void waitForTargetThenLeave(int attempt) {
-        if (destroyed) return;
-        if (attempt > 8) {
-            bringHome(this);
-            return;
-        }
-        String packageName = activePackage();
-        if (packageName == null || !GuardScreens.isWatchedPackage(packageName)) {
-            mainHandler.postDelayed(() -> waitForTargetThenLeave(attempt + 1), 200);
-            return;
-        }
-        if (classifyActiveWindow() != null) {
-            performGlobalAction(GLOBAL_ACTION_BACK);
-            mainHandler.postDelayed(() -> {
-                if (destroyed) return;
-                if (classifyActiveWindow() != null) {
-                    performGlobalAction(GLOBAL_ACTION_BACK);
-                }
-                mainHandler.postDelayed(() -> bringHome(ShortsGuardService.this), 400);
-            }, 350);
-            return;
-        }
-        bringHome(this);
-    }
-
     private String activePackage() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return null;
@@ -200,15 +268,11 @@ public class ShortsGuardService extends AccessibilityService {
         }
     }
 
-    private void launchApp() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-            | Intent.FLAG_ACTIVITY_SINGLE_TOP
-            | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        startActivity(intent);
+    private void bringSelfToFront() {
+        bringSelf(this);
     }
 
-    private static void bringHome(android.content.Context context) {
+    private static void bringSelf(Context context) {
         Intent intent = new Intent(context, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
             | Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -216,58 +280,46 @@ public class ShortsGuardService extends AccessibilityService {
         context.startActivity(intent);
     }
 
-    /**
-     * Resource ids, view class names, and a selected Shorts/Reels tab label.
-     * Does not call getText or read password fields, and does not keep labels.
-     */
-    private static GuardScreens.Hit inspect(AccessibilityNodeInfo root) {
-        GuardScreens.Hit hit = new GuardScreens.Hit(new ArrayList<>(), false, false, false);
-        int[] count = new int[] {0};
-        boolean[] tabs = new boolean[] {false, false};
-        boolean[] clips = new boolean[] {false};
-        walk(root, hit.ids, tabs, clips, 0, count);
-        return new GuardScreens.Hit(hit.ids, tabs[0], tabs[1], clips[0]);
+    private static void openYoutubeShorts(Context context) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/shorts"));
+        intent.setPackage(GuardScreens.YOUTUBE);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(intent);
+        } catch (RuntimeException ignored) {
+            Intent launch = context.getPackageManager().getLaunchIntentForPackage(GuardScreens.YOUTUBE);
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(launch);
+            }
+        }
     }
 
-    private static void walk(
-        AccessibilityNodeInfo node,
-        List<String> ids,
-        boolean[] tabs,
-        boolean[] clips,
-        int depth,
-        int[] count
-    ) {
+    /**
+     * Resource ids only. Does not call getText or read password fields.
+     */
+    private static GuardScreens.Hit inspect(AccessibilityNodeInfo root) {
+        List<String> ids = new ArrayList<>();
+        int[] count = new int[] {0};
+        walk(root, ids, 0, count);
+        return new GuardScreens.Hit(ids, false, false, false);
+    }
+
+    private static void walk(AccessibilityNodeInfo node, List<String> ids, int depth, int[] count) {
         if (node == null || depth > 30 || count[0] > 800) return;
-        if (tabs[0] || tabs[1] || clips[0]) return;
         count[0] += 1;
         String id = node.getViewIdResourceName();
         if (id != null) ids.add(id);
-        CharSequence className = node.getClassName();
-        if (className != null && GuardScreens.viewClassIsReels(className.toString())) {
-            clips[0] = true;
+        if (GuardScreens.classify(GuardScreens.YOUTUBE, ids) != null
+            || GuardScreens.classify(GuardScreens.INSTAGRAM, ids) != null) {
+            return;
         }
-        if (!node.isPassword() && !node.isEditable()) {
-            CharSequence description = node.getContentDescription();
-            if (description != null) {
-                boolean selected = node.isSelected() || node.isChecked();
-                String kind = GuardScreens.selectedTabKind(description.toString(), selected);
-                if ("youtube".equals(kind)) tabs[0] = true;
-                else if ("instagram".equals(kind)) tabs[1] = true;
-            }
-        }
-        if (tabs[0] || tabs[1] || clips[0] || playerMarkerFound(ids)) return;
         int children = node.getChildCount();
         for (int i = 0; i < children && count[0] <= 800; i++) {
             AccessibilityNodeInfo child = node.getChild(i);
             if (child == null) continue;
-            walk(child, ids, tabs, clips, depth + 1, count);
+            walk(child, ids, depth + 1, count);
             child.recycle();
-            if (tabs[0] || tabs[1] || clips[0]) return;
         }
-    }
-
-    private static boolean playerMarkerFound(List<String> ids) {
-        return GuardScreens.classify(GuardScreens.YOUTUBE, ids) != null
-            || GuardScreens.classify(GuardScreens.INSTAGRAM, ids) != null;
     }
 }

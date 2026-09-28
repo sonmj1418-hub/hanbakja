@@ -14,19 +14,17 @@ public final class GuardScreens {
     public static final String YOUTUBE = "com.google.android.youtube";
     public static final String INSTAGRAM = "com.instagram.android";
 
+    /** Full-screen player containers. Home shelves and inline rows do not use these. */
     private static final String[] YOUTUBE_PLAYER = {
         "reel_player_page",
         "reel_player_underlay",
-        "reel_player_overlay",
         "reel_player_container",
-        "reel_recycler",
-        "reel_watch",
-        "shorts_player"
+        "reel_watch_fragment"
     };
 
+    /** Full-screen Reels viewer. Feed previews and stories do not use this. */
     private static final String[] INSTAGRAM_REELS = {
-        "clips_viewer",
-        "clips_video"
+        "clips_viewer"
     };
 
     private GuardScreens() {}
@@ -89,12 +87,10 @@ public final class GuardScreens {
     public static String classify(String packageName, Hit hit) {
         if (packageName == null || hit == null) return null;
         if (YOUTUBE.equals(packageName)) {
-            if (hit.shortsTab || containsMarker(hit.ids, YOUTUBE_PLAYER)) return "youtube";
-            return null;
+            return containsMarker(hit.ids, YOUTUBE_PLAYER) ? "youtube" : null;
         }
         if (INSTAGRAM.equals(packageName)) {
-            if (hit.reelsTab || hit.clipsClass || containsMarker(hit.ids, INSTAGRAM_REELS)) return "instagram";
-            return null;
+            return containsMarker(hit.ids, INSTAGRAM_REELS) ? "instagram" : null;
         }
         return null;
     }

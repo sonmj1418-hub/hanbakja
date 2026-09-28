@@ -38,11 +38,13 @@ public class GuardPlugin extends Plugin {
             return;
         }
         if ("watch".equals(outcome)) {
-            GuardState.beginWatch(getContext(), target);
-            if (getActivity() != null) getActivity().moveTaskToBack(true);
+            ShortsGuardService.requestWatch(getContext(), target);
+            if ("instagram".equals(target) && getActivity() != null) {
+                getActivity().moveTaskToBack(true);
+            }
         } else if ("leave".equals(outcome) || "block".equals(outcome)) {
-            if (getActivity() != null) getActivity().moveTaskToBack(true);
-            ShortsGuardService.requestLeave(getContext());
+            android.content.Context host = getActivity() != null ? getActivity() : getContext();
+            ShortsGuardService.requestLeave(host, target);
         } else {
             call.reject("알 수 없는 결과입니다.");
             return;

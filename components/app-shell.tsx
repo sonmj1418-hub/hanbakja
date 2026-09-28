@@ -101,7 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden border-r border-border/80 md:flex md:flex-col md:px-4 md:py-6">
         <Link href="/" className="flex items-center gap-2 px-2">
           <Mark />
-          <span className="text-lg font-semibold tracking-tight">한박자</span>
+          <span className="text-lg font-semibold tracking-tight">Focus on</span>
         </Link>
         <p className="mt-2 px-2 text-xs leading-5 text-muted-foreground">
           Shorts · Reels 사용 조절

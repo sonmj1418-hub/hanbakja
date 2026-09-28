@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "한박자",
-  "short_name": "한박자",
+  "name": "Focus on",
+  "short_name": "Focus on",
   "description": "쇼츠를 열기 전에 이유를 묻고, 오늘 사용량에 따라 단계적으로 개입합니다.",
   "lang": "ko",
   "dir": "ltr",

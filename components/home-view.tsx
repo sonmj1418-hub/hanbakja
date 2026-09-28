@@ -59,7 +59,7 @@ export function HomeView() {
       <header className="flex items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">YouTube Shorts · Instagram Reels</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">한박자</h1>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Focus on</h1>
         </div>
         <Badge variant={level === 3 ? "destructive" : "secondary"}>
           Level {level}

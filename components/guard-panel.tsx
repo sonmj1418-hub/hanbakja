@@ -40,10 +40,11 @@ export function GuardPanel() {
     <section className="space-y-3 rounded-3xl bg-card px-4 py-4 ring-1 ring-foreground/10">
       <h2 className="text-base font-medium">실제 쇼츠·릴스 개입</h2>
       <p className="text-sm leading-6 text-muted-foreground">
-        안드로이드에서 접근성 서비스를 직접 켜면, YouTube Shorts와 Instagram
-        Reels 화면이 열릴 때 같은 이유 질문과 Level 1~3 개입이 나옵니다. 나가기,
-        강제 종료, 시간 차단을 고르면 그 화면에서 뒤로 나와 한박자 홈으로
-        돌아옵니다. 시청을 고르면 잠시 그 화면으로 돌아갑니다.
+        안드로이드에서 접근성 서비스를 직접 켜면, YouTube Shorts 플레이어와
+        Instagram Reels 플레이어가 열릴 때 같은 이유 질문과 Level 1~3 개입이
+        나옵니다. 쇼츠 플레이어는 YouTube를 닫아 재생을 멈춘 뒤에 개입이 열립니다.
+        홈의 쇼츠 선반, 일반 영상, Instagram 피드와 스토리는 열어도 개입이 나오지
+        않습니다.
       </p>
       <p className="text-sm leading-6 text-muted-foreground">
         기록은 이 기기에만 남습니다. 화면의 글, 메시지, 비밀번호, 계정은 저장하거나
@@ -53,17 +54,17 @@ export function GuardPanel() {
         <li>아래 버튼을 누르거나 휴대폰의 설정 앱을 엽니다.</li>
         <li>
           <strong className="font-medium text-foreground">설정 → 접근성</strong>으로
-          이동합니다. 한박자가 바로 없으면{" "}
+          이동합니다. Focus on이 바로 없으면{" "}
           <strong className="font-medium text-foreground">설치된 앱</strong> 또는{" "}
           <strong className="font-medium text-foreground">다운로드한 앱</strong>을
           엽니다.
         </li>
-        <li>한박자를 켜고, 확인 창에서 허용을 누릅니다.</li>
+        <li>Focus on을 켜고, 확인 창에서 허용을 누릅니다.</li>
       </ol>
       <p className="text-sm leading-6 text-muted-foreground">
         안드로이드 13 이상에서는 그 전에{" "}
         <strong className="font-medium text-foreground">
-          설정 → 앱 → 한박자 → 오른쪽 위 ⋮ → 제한된 설정 허용
+          설정 → 앱 → Focus on → 오른쪽 위 ⋮ → 제한된 설정 허용
         </strong>
         이 필요할 수 있습니다.
       </p>

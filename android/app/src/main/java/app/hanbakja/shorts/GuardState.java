@@ -98,6 +98,31 @@ public final class GuardState {
         }
     }
 
+    /** Drop a leftover prompt or watch when the real player is no longer showing. */
+    public static void clearPlayerSession(Context context, String kind) {
+        if (kind == null || kind.isEmpty()) return;
+        synchronized (LOCK) {
+            SharedPreferences prefs = prefs(context);
+            String mode = prefs.getString(KEY_MODE, IDLE);
+            String target = prefs.getString(KEY_TARGET, "");
+            if (!kind.equals(target)) return;
+            if (!PROMPTING.equals(mode) && !WATCHING.equals(mode)) return;
+            SharedPreferences.Editor editor = prefs.edit()
+                .putString(KEY_MODE, IDLE)
+                .putString(KEY_TARGET, "");
+            if (WATCHING.equals(mode)) editor.putBoolean(KEY_ENDED, true);
+            editor.commit();
+        }
+    }
+
+    public static void suppress(Context context, long suppressMs) {
+        synchronized (LOCK) {
+            prefs(context).edit()
+                .putLong(KEY_SUPPRESS, System.currentTimeMillis() + suppressMs)
+                .commit();
+        }
+    }
+
     public static void idleAndSuppress(Context context, long suppressMs) {
         synchronized (LOCK) {
             prefs(context).edit()

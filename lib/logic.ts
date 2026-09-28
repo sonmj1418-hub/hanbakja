@@ -329,6 +329,41 @@ export function applyFlush(
   return { ...data, activeSession, usageLogs };
 }
 
+export function addExternalWatch(
+  data: AppData,
+  realSeconds: number,
+  intoActiveSession: boolean,
+  now = Date.now(),
+  usageId = `guard-${now}`,
+): AppData {
+  const whole = Math.floor(realSeconds);
+  if (whole <= 0) return data;
+  const add = whole * data.settings.timeScale;
+  const endTime = new Date(now).toISOString();
+  if (intoActiveSession && data.activeSession) {
+    const duration = data.activeSession.duration + add;
+    const activeSession = { ...data.activeSession, duration, lastTickAt: now };
+    const usageLogs = data.usageLogs.map((log) =>
+      log.usageId === activeSession.usageId ? { ...log, duration, endTime } : log,
+    );
+    return { ...data, activeSession, usageLogs };
+  }
+  return {
+    ...data,
+    usageLogs: [
+      ...data.usageLogs,
+      {
+        usageId,
+        date: todayKey(new Date(now)),
+        startTime: new Date(now - whole * 1000).toISOString(),
+        endTime,
+        duration: add,
+        clipCount: 1,
+      },
+    ],
+  };
+}
+
 export function finalizeSession(data: AppData, now = Date.now()): AppData {
   if (!data.activeSession) return data;
   const session = data.activeSession;

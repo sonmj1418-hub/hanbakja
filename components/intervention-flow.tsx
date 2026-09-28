@@ -48,11 +48,13 @@ export function InterventionFlow({
   usageSeconds,
   timeScale,
   onFinish,
+  sourceLabel = null,
 }: {
   level: Level;
   usageSeconds: number;
   timeScale: number;
   onFinish: (input: InterventionInput) => void;
+  sourceLabel?: string | null;
 }) {
   const [step, setStep] = useState<Step>("reason");
   const [reason, setReason] = useState<string | null>(null);
@@ -143,6 +145,7 @@ export function InterventionFlow({
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
         오늘 누적 {formatClock(usageSeconds)}
+        {sourceLabel ? ` · ${sourceLabel}` : ""}
       </p>
 
       {step === "reason" ? (
@@ -152,11 +155,16 @@ export function InterventionFlow({
             tabIndex={-1}
             className="text-3xl font-semibold tracking-tight outline-none"
           >
-            왜 쇼츠를 실행하셨나요?
+            {sourceLabel?.includes("Reels")
+              ? "왜 릴스를 실행하셨나요?"
+              : "왜 쇼츠를 실행하셨나요?"}
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             이유를 고르기 전에는 피드가 열리지 않습니다. 나가기는 선택 없이도
             됩니다.
+            {sourceLabel
+              ? " 나가기, 강제 종료, 시간 차단을 고르면 그 화면에서 빠져나와 한박자로 돌아갑니다."
+              : ""}
           </p>
           <div className="mt-5 space-y-2" role="listbox" aria-label="실행 이유">
             {REASONS.map((item) => {

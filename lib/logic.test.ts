@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  addExternalWatch,
   applyFlush,
   blockUntilFromMinutes,
   finalizeSession,
@@ -184,6 +185,45 @@ describe("stats", () => {
     assert.equal(stats.reentryCount, 1);
     assert.equal(stats.blockCount, 1);
     assert.match(reportLines(stats).join("\n"), /대체행동 후 재실행 : 1회/);
+  });
+});
+
+describe("guarded watch time", () => {
+  it("adds real seconds onto the open session using the time scale", () => {
+    const started = {
+      ...defaultData(),
+      settings: { ...settings, timeScale: 60 as const },
+      activeSession: {
+        usageId: "u1",
+        date: "2026-09-28",
+        startTime: "2026-09-28T00:00:00.000Z",
+        duration: 5,
+        clipCount: 1,
+        interventionId: "i1",
+        levelAtStart: 1 as const,
+        lastTickAt: Date.parse("2026-09-28T00:00:00.000Z"),
+      },
+      usageLogs: [
+        {
+          usageId: "u1",
+          date: "2026-09-28",
+          startTime: "2026-09-28T00:00:00.000Z",
+          endTime: "2026-09-28T00:00:00.000Z",
+          duration: 5,
+          clipCount: 1,
+        },
+      ],
+    };
+    const next = addExternalWatch(started, 3.2, true, Date.parse("2026-09-28T00:00:04.000Z"));
+    assert.equal(next.activeSession?.duration, 5 + 3 * 60);
+    assert.equal(next.usageLogs[0]?.duration, 5 + 180);
+  });
+
+  it("keeps a separate log when there is no open guard session", () => {
+    const next = addExternalWatch(defaultData(), 4, false, Date.parse("2026-09-28T00:00:04.000Z"), "g1");
+    assert.equal(next.activeSession, null);
+    assert.equal(next.usageLogs[0]?.usageId, "g1");
+    assert.equal(next.usageLogs[0]?.duration, 4);
   });
 });
 

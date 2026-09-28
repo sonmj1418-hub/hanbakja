@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { GuardPanel } from "@/components/guard-panel";
 import { useStore } from "@/components/store";
 import { normalizeClock, validateSettings } from "@/lib/logic";
 import type { Settings } from "@/lib/types";
@@ -86,6 +87,8 @@ export function SettingsView() {
         <p className="text-sm text-muted-foreground">기준, 알림, 시연</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">설정</h1>
       </header>
+
+      <GuardPanel />
 
       <form
         className="space-y-5 rounded-3xl bg-card p-5 ring-1 ring-foreground/10"
@@ -286,21 +289,24 @@ export function SettingsView() {
         </p>
         <p>
           안드로이드는{" "}
-          <a className="underline" href="/hanbakja-debug.apk">
+          <a
+            className="underline"
+            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.2.0/hanbakja-debug.apk"
+          >
             한박자 APK
           </a>
-          를 받아 설치하세요. 출처를 알 수 없는 앱 설치를 허용해야 합니다. 설치한
-          앱은 인터넷 없이도 동작합니다.
+          를 받아 설치하세요. 출처를 알 수 없는 앱 설치를 허용해야 합니다. 설치 후
+          설정 → 접근성에서 한박자를 켜야 실제 쇼츠와 릴스에 개입합니다.
         </p>
       </section>
 
       <section className="space-y-2 text-sm leading-6 text-muted-foreground">
         <h2 className="text-base font-medium text-foreground">이 앱이 하지 않는 일</h2>
         <p>
-          실제 YouTube 앱의 화면을 읽거나 프로세스를 종료하지 않습니다. Android
-          접근성 서비스, 다른 앱의 사용 시간, 기기가 꺼진 뒤의 예약 알림은 운영체제
-          기능이라 브라우저에서는 동작하지 않습니다. 쇼츠 열기부터 개입, 기록, 통계,
-          리포트까지는 이 앱 안에서 끝까지 이어집니다.
+          브라우저와 아이폰에서는 다른 앱을 막지 않습니다. 안드로이드 설치본은
+          접근성을 켠 뒤에 YouTube Shorts와 Instagram Reels 화면만 구분합니다.
+          그 화면의 글이나 다른 앱의 내용은 저장하지 않고, 프로세스를 강제로
+          종료하지도 않습니다. 나가거나 차단하면 뒤로 이동해 한박자로 돌아옵니다.
         </p>
       </section>
     </div>

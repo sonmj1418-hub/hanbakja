@@ -6,6 +6,7 @@ import "@fontsource/noto-sans-kr/latin-400.css";
 import "@fontsource/noto-sans-kr/latin-500.css";
 import "@fontsource/noto-sans-kr/latin-700.css";
 import { AppShell } from "@/components/app-shell";
+import { GuardBridge } from "@/components/guard-bridge";
 import { PwaRegister } from "@/components/pwa-register";
 import { StoreProvider } from "@/components/store";
 import "./globals.css";
@@ -51,6 +52,7 @@ export default function RootLayout({
         <noscript>한박자는 자바스크립트가 필요합니다.</noscript>
         <StoreProvider>
           <PwaRegister />
+          <GuardBridge />
           <AppShell>{children}</AppShell>
         </StoreProvider>
       </body>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GuardPanel } from "@/components/guard-panel";
 import { useStore } from "@/components/store";
 import { useNow } from "@/components/use-now";
 import {
@@ -57,13 +58,15 @@ export function HomeView() {
     <div className="flex flex-col gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-sm text-muted-foreground">YouTube Shorts 사용 조절</p>
+          <p className="text-sm text-muted-foreground">YouTube Shorts · Instagram Reels</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">한박자</h1>
         </div>
         <Badge variant={level === 3 ? "destructive" : "secondary"}>
           Level {level}
         </Badge>
       </header>
+
+      <GuardPanel />
 
       {data.settings.timeScale !== 1 ? (
         <p className="rounded-2xl bg-accent px-4 py-3 text-sm text-accent-foreground">
@@ -128,8 +131,8 @@ export function HomeView() {
               {blocked ? "차단 상태 보기" : "쇼츠 열기"}
             </Button>
             <p className="text-xs leading-5 text-muted-foreground">
-              이 버튼을 누르면 쇼츠에 들어가려는 순간으로 보고 개입 화면을 엽니다.
-              이어지는 피드는 시뮬레이션이며, 실제 YouTube 앱을 감지하지는 않습니다.
+              이 버튼은 연습입니다. 안드로이드에서 접근성을 켜면 실제 YouTube
+              Shorts와 Instagram Reels 화면에서 같은 개입이 열립니다.
             </p>
           </CardContent>
         </Card>

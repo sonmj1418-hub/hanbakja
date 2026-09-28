@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="text-lg font-semibold tracking-tight">한박자</span>
         </Link>
         <p className="mt-2 px-2 text-xs leading-5 text-muted-foreground">
-          YouTube Shorts 사용 조절
+          Shorts · Reels 사용 조절
         </p>
         <nav className="mt-8 flex flex-col gap-1" aria-label="주요">
           {NAV.map((item) => {

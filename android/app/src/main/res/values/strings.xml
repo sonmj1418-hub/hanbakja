@@ -4,4 +4,5 @@
     <string name="title_activity_main">한박자</string>
     <string name="package_name">app.hanbakja.shorts</string>
     <string name="custom_url_scheme">app.hanbakja.shorts</string>
+    <string name="accessibility_service_description">YouTube Shorts와 Instagram Reels 화면이 열렸는지 확인하고 한박자의 개입을 띄웁니다. 화면의 글, 메시지, 비밀번호, 계정은 저장하거나 보내지 않습니다. 쇼츠와 릴스가 아닌 다른 앱은 보지 않습니다.</string>
 </resources>

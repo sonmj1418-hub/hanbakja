@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import {
+  addExternalWatch,
   applyFlush,
   blockUntilFromMinutes,
   finalizeSession,
@@ -37,6 +38,7 @@ type StoreContextValue = {
   flushWatch: (visible: boolean) => void;
   advanceClip: () => void;
   stopWatching: () => void;
+  addExternalWatch: (realSeconds: number, intoActiveSession: boolean) => void;
   beginBlock: (minutes: number) => void;
   cancelDetach: () => void;
   scheduleDetach: () => void;
@@ -246,6 +248,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }, 400);
   }, [cancelDetach, update]);
 
+  const addExternalWatchSeconds = useCallback(
+    (realSeconds: number, intoActiveSession: boolean) => {
+      update((current) =>
+        addExternalWatch(
+          current,
+          realSeconds,
+          intoActiveSession,
+          Date.now(),
+          crypto.randomUUID(),
+        ),
+      );
+    },
+    [update],
+  );
+
   const beginBlock = useCallback(
     (minutes: number) => {
       update((current) => ({
@@ -336,6 +353,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       flushWatch,
       advanceClip,
       stopWatching,
+      addExternalWatch: addExternalWatchSeconds,
       beginBlock,
       cancelDetach,
       scheduleDetach,
@@ -357,6 +375,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       flushWatch,
       advanceClip,
       stopWatching,
+      addExternalWatchSeconds,
       beginBlock,
       cancelDetach,
       scheduleDetach,

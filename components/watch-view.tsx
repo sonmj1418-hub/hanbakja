@@ -8,6 +8,14 @@ import { useStore } from "@/components/store";
 import { useNow } from "@/components/use-now";
 import { CLIPS } from "@/lib/clips";
 import {
+  guardSourceLabel,
+  HanbakjaGuard,
+  isGuardTarget,
+  isNativeAndroid,
+  markGuardSession,
+  type GuardTarget,
+} from "@/lib/guard";
+import {
   blockRemainingSeconds,
   formatClock,
   isBlocked,
@@ -23,7 +31,36 @@ export function WatchView() {
   const now = useNow();
   const [phase, setPhase] = useState<"gate" | "play">("gate");
   const [entryUsage, setEntryUsage] = useState<number | null>(null);
+  const [guardTarget, setGuardTarget] = useState<GuardTarget | null>(null);
   const recordedBlock = useRef(false);
+  const guardTargetRef = useRef<GuardTarget | null>(null);
+
+  async function resolveGuardTarget(): Promise<GuardTarget | null> {
+    if (guardTargetRef.current) return guardTargetRef.current;
+    if (!isNativeAndroid()) return null;
+    try {
+      const status = await HanbakjaGuard.getStatus();
+      if (!isGuardTarget(status.pendingTarget)) return null;
+      guardTargetRef.current = status.pendingTarget;
+      setGuardTarget(status.pendingTarget);
+      return status.pendingTarget;
+    } catch {
+      return null;
+    }
+  }
+
+  useEffect(() => {
+    if (!isNativeAndroid()) return;
+    let cancelled = false;
+    void resolveGuardTarget().then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Read the pending target once when the intervention screen opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (store.data && entryUsage === null) {
     setEntryUsage(usageSecondsOn(store.data, todayKey()));
@@ -53,6 +90,24 @@ export function WatchView() {
     });
   }, [blocked, phase, store]);
 
+  const leftRealScreen = useRef(false);
+  useEffect(() => {
+    if (!blocked || phase === "play" || leftRealScreen.current || !isNativeAndroid()) return;
+    let cancelled = false;
+    void HanbakjaGuard.getStatus()
+      .then(async (status) => {
+        if (cancelled || leftRealScreen.current || !isGuardTarget(status.pendingTarget)) return;
+        leftRealScreen.current = true;
+        guardTargetRef.current = status.pendingTarget;
+        setGuardTarget(status.pendingTarget);
+        await HanbakjaGuard.finish({ outcome: "block", target: status.pendingTarget });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [blocked, phase]);
+
   if (!store.data || entryUsage === null) {
     return (
       <div className="flex min-h-dvh items-center justify-center px-6" role="status">
@@ -67,13 +122,38 @@ export function WatchView() {
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5">
         <p className="text-sm font-medium text-destructive">차단 중</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          지금은 쇼츠를 열 수 없습니다.
+          {guardTarget === "instagram"
+            ? "지금은 릴스를 열 수 없습니다."
+            : "지금은 쇼츠를 열 수 없습니다."}
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           선택한 차단이 끝나기 전에는 피드가 시작되지 않습니다.
+          {guardTarget
+            ? " 홈으로 돌아가면 열려 있던 화면에서도 빠져나옵니다."
+            : ""}
         </p>
         <p className="my-8 text-5xl font-semibold tabular-nums">{formatClock(remaining)}</p>
-        <Button type="button" className="h-12" onClick={() => router.push("/")}>
+        <Button
+          type="button"
+          className="h-12"
+          onClick={() => {
+            void (async () => {
+              if (leftRealScreen.current && !guardTargetRef.current) {
+                router.push("/");
+                return;
+              }
+              const target = guardTargetRef.current ?? (await resolveGuardTarget());
+              if (target && !leftRealScreen.current) {
+                try {
+                  await HanbakjaGuard.finish({ outcome: "block", target });
+                } catch {
+                  // Fall through to the home screen.
+                }
+              }
+              router.push("/");
+            })();
+          }}
+        >
           홈으로
         </Button>
       </div>
@@ -90,16 +170,37 @@ export function WatchView() {
     const id = store.recordIntervention(input);
     if (input.outcome === "timed-block") {
       store.beginBlock(input.blockDuration);
-      router.push("/");
-      return;
     }
     if (input.outcome === "watch") {
       store.startWatching(input.level, id);
-      setPhase("play");
-      return;
     }
-    router.push("/");
+    void (async () => {
+      const target = await resolveGuardTarget();
+      if (target) {
+        const outcome =
+          input.outcome === "watch"
+            ? "watch"
+            : input.outcome === "timed-block"
+              ? "block"
+              : "leave";
+        if (outcome === "watch") markGuardSession();
+        try {
+          await HanbakjaGuard.finish({ outcome, target });
+        } catch {
+          // Still leave the intervention screen if the bridge is unavailable.
+        }
+        router.push("/");
+        return;
+      }
+      if (input.outcome === "watch") {
+        setPhase("play");
+        return;
+      }
+      router.push("/");
+    })();
   }
+
+  const sourceLabel = guardTarget ? guardSourceLabel(guardTarget) : null;
 
   return (
     <InterventionFlow
@@ -107,6 +208,7 @@ export function WatchView() {
       usageSeconds={entryUsage}
       timeScale={store.data.settings.timeScale}
       onFinish={finish}
+      sourceLabel={sourceLabel}
     />
   );
 }

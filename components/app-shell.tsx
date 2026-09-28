@@ -16,21 +16,11 @@ const NAV = [
 
 function Mark({ className }: { className?: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#2c261f]",
-        className,
-      )}
-      aria-hidden
-    >
-      <span className="relative flex h-[22px] w-[14px] items-center justify-center rounded-[4px] bg-[#f6f1e7]">
-        <span className="absolute inset-[2px] rounded-[2px] bg-[#2c261f]" />
-        <span className="relative z-10 flex gap-[2px]">
-          <span className="h-[7px] w-[2px] rounded-full bg-[#c45c3e]" />
-          <span className="h-[7px] w-[2px] rounded-full bg-[#c45c3e]" />
-        </span>
-      </span>
-    </span>
+    <img
+      src="/icons/icon-192.png"
+      alt=""
+      className={cn("h-8 w-8 rounded-lg", className)}
+    />
   );
 }
 
@@ -150,6 +140,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         ) : null}
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pt-5 pb-28 md:px-8 md:pt-8 md:pb-10">
+          <div className="mb-4 flex items-center gap-2 md:hidden">
+            <Mark />
+            <span className="text-lg font-semibold tracking-tight">Focus on</span>
+          </div>
           {children}
         </div>
       </div>

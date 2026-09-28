@@ -266,7 +266,7 @@ export function SettingsView() {
           안드로이드는{" "}
           <a
             className="underline"
-            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.5.0/hanbakja-debug.apk"
+            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.6.0/hanbakja-debug.apk"
           >
             Focus on APK
           </a>

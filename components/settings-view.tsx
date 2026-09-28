@@ -291,7 +291,7 @@ export function SettingsView() {
           안드로이드는{" "}
           <a
             className="underline"
-            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.2.0/hanbakja-debug.apk"
+            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.3.0/hanbakja-debug.apk"
           >
             한박자 APK
           </a>

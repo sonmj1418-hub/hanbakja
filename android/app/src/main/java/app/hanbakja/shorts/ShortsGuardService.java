@@ -88,7 +88,8 @@ public class ShortsGuardService extends AccessibilityService {
             onTargetScreen("youtube");
             return;
         }
-        String kind = classifyActiveWindow();
+        String kind = classifyEvent(event);
+        if (kind == null) kind = classifyActiveWindow();
         if (kind == null) return;
         onTargetScreen(kind);
     }
@@ -131,37 +132,72 @@ public class ShortsGuardService extends AccessibilityService {
         }
     }
 
+    private String classifyEvent(AccessibilityEvent event) {
+        AccessibilityNodeInfo source = event.getSource();
+        if (source == null) return null;
+        try {
+            return classifyNode(source);
+        } finally {
+            source.recycle();
+        }
+    }
+
     private String classifyActiveWindow() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return null;
         try {
-            CharSequence packageChars = root.getPackageName();
-            if (packageChars == null) return null;
-            String packageName = packageChars.toString();
-            if (!GuardScreens.isWatchedPackage(packageName)) return null;
-            return GuardScreens.classify(packageName, collectIds(root));
+            return classifyNode(root);
         } finally {
             root.recycle();
         }
     }
 
+    private static String classifyNode(AccessibilityNodeInfo node) {
+        CharSequence packageChars = node.getPackageName();
+        if (packageChars == null) return null;
+        String packageName = packageChars.toString();
+        if (!GuardScreens.isWatchedPackage(packageName)) return null;
+        return GuardScreens.classify(packageName, inspect(node));
+    }
+
     private void leaveScreenAndReturn() {
-        mainHandler.postDelayed(() -> {
-            if (destroyed) return;
-            String kind = classifyActiveWindow();
-            if (kind != null) {
-                performGlobalAction(GLOBAL_ACTION_BACK);
-                mainHandler.postDelayed(() -> {
-                    if (destroyed) return;
-                    if (classifyActiveWindow() != null) {
-                        performGlobalAction(GLOBAL_ACTION_BACK);
-                    }
-                    mainHandler.postDelayed(() -> bringHome(ShortsGuardService.this), 450);
-                }, 320);
-            } else {
-                bringHome(ShortsGuardService.this);
-            }
-        }, 350);
+        mainHandler.postDelayed(() -> waitForTargetThenLeave(0), 400);
+    }
+
+    private void waitForTargetThenLeave(int attempt) {
+        if (destroyed) return;
+        if (attempt > 8) {
+            bringHome(this);
+            return;
+        }
+        String packageName = activePackage();
+        if (packageName == null || !GuardScreens.isWatchedPackage(packageName)) {
+            mainHandler.postDelayed(() -> waitForTargetThenLeave(attempt + 1), 200);
+            return;
+        }
+        if (classifyActiveWindow() != null) {
+            performGlobalAction(GLOBAL_ACTION_BACK);
+            mainHandler.postDelayed(() -> {
+                if (destroyed) return;
+                if (classifyActiveWindow() != null) {
+                    performGlobalAction(GLOBAL_ACTION_BACK);
+                }
+                mainHandler.postDelayed(() -> bringHome(ShortsGuardService.this), 400);
+            }, 350);
+            return;
+        }
+        bringHome(this);
+    }
+
+    private String activePackage() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return null;
+        try {
+            CharSequence packageChars = root.getPackageName();
+            return packageChars == null ? null : packageChars.toString();
+        } finally {
+            root.recycle();
+        }
     }
 
     private void launchApp() {
@@ -181,26 +217,57 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     /**
-     * Resource ids only. Does not call getText, getHintText, or read editable fields.
+     * Resource ids, view class names, and a selected Shorts/Reels tab label.
+     * Does not call getText or read password fields, and does not keep labels.
      */
-    private static List<String> collectIds(AccessibilityNodeInfo root) {
-        List<String> ids = new ArrayList<>();
+    private static GuardScreens.Hit inspect(AccessibilityNodeInfo root) {
+        GuardScreens.Hit hit = new GuardScreens.Hit(new ArrayList<>(), false, false, false);
         int[] count = new int[] {0};
-        walk(root, ids, 0, count);
-        return ids;
+        boolean[] tabs = new boolean[] {false, false};
+        boolean[] clips = new boolean[] {false};
+        walk(root, hit.ids, tabs, clips, 0, count);
+        return new GuardScreens.Hit(hit.ids, tabs[0], tabs[1], clips[0]);
     }
 
-    private static void walk(AccessibilityNodeInfo node, List<String> ids, int depth, int[] count) {
-        if (node == null || depth > 24 || count[0] > 400) return;
+    private static void walk(
+        AccessibilityNodeInfo node,
+        List<String> ids,
+        boolean[] tabs,
+        boolean[] clips,
+        int depth,
+        int[] count
+    ) {
+        if (node == null || depth > 30 || count[0] > 800) return;
+        if (tabs[0] || tabs[1] || clips[0]) return;
         count[0] += 1;
         String id = node.getViewIdResourceName();
         if (id != null) ids.add(id);
+        CharSequence className = node.getClassName();
+        if (className != null && GuardScreens.viewClassIsReels(className.toString())) {
+            clips[0] = true;
+        }
+        if (!node.isPassword() && !node.isEditable()) {
+            CharSequence description = node.getContentDescription();
+            if (description != null) {
+                boolean selected = node.isSelected() || node.isChecked();
+                String kind = GuardScreens.selectedTabKind(description.toString(), selected);
+                if ("youtube".equals(kind)) tabs[0] = true;
+                else if ("instagram".equals(kind)) tabs[1] = true;
+            }
+        }
+        if (tabs[0] || tabs[1] || clips[0] || playerMarkerFound(ids)) return;
         int children = node.getChildCount();
-        for (int i = 0; i < children && count[0] <= 400; i++) {
+        for (int i = 0; i < children && count[0] <= 800; i++) {
             AccessibilityNodeInfo child = node.getChild(i);
             if (child == null) continue;
-            walk(child, ids, depth + 1, count);
+            walk(child, ids, tabs, clips, depth + 1, count);
             child.recycle();
+            if (tabs[0] || tabs[1] || clips[0]) return;
         }
+    }
+
+    private static boolean playerMarkerFound(List<String> ids) {
+        return GuardScreens.classify(GuardScreens.YOUTUBE, ids) != null
+            || GuardScreens.classify(GuardScreens.INSTAGRAM, ids) != null;
     }
 }

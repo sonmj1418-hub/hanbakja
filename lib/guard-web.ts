@@ -1,5 +1,6 @@
 import { WebPlugin } from "@capacitor/core";
-import type { HanbakjaGuardPlugin } from "./guard";
+import type { HanbakjaGuardPlugin } from "./guard.ts";
+import { overlayGuardTarget } from "./guard.ts";
 
 const BLOCKER_KEY = "hanbakja.blocker";
 
@@ -10,9 +11,10 @@ function readBlocker(): boolean {
 
 export class HanbakjaGuardWeb extends WebPlugin implements HanbakjaGuardPlugin {
   async getStatus() {
+    const overlay = overlayGuardTarget();
     return {
-      enabled: false,
-      pendingTarget: "",
+      enabled: overlay != null,
+      pendingTarget: overlay ?? "",
       watching: false,
       blockerEnabled: readBlocker(),
     };
@@ -26,7 +28,12 @@ export class HanbakjaGuardWeb extends WebPlugin implements HanbakjaGuardPlugin {
     return { seconds: 0, ended: false };
   }
 
-  async finish() {}
+  async finish(options: { outcome: string }) {
+    const bridge = (
+      window as Window & { AndroidOverlay?: { finish: (outcome: string) => void } }
+    ).AndroidOverlay;
+    if (bridge) bridge.finish(options.outcome);
+  }
 
   async openSettings() {}
 }

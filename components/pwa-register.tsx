@@ -9,7 +9,8 @@ type NativeWindow = Window & {
 export function PwaRegister() {
   useEffect(() => {
     const native = (window as NativeWindow).Capacitor?.isNativePlatform?.();
-    if (native || !("serviceWorker" in navigator)) return;
+    const overlay = (window as Window & { __HANBAKJA_OVERLAY__?: string }).__HANBAKJA_OVERLAY__;
+    if (native || overlay || !("serviceWorker" in navigator)) return;
     const register = () => {
       void navigator.serviceWorker.register("/sw.js").catch(() => {
         // 설치 안내는 설정 화면에 있고, 등록 실패가 앱 사용을 막지는 않습니다.

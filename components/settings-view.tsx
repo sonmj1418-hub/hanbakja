@@ -266,7 +266,7 @@ export function SettingsView() {
           안드로이드는{" "}
           <a
             className="underline"
-            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.6.0/hanbakja-debug.apk"
+            href="https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.7.0/hanbakja-debug.apk"
           >
             Focus on APK
           </a>
@@ -280,8 +280,9 @@ export function SettingsView() {
         <p>
           브라우저에서는 다른 앱을 막지 않습니다. 안드로이드 설치본은 접근성을 켠
           뒤에 YouTube Shorts 플레이어와 Instagram Reels 플레이어만 구분합니다.
-          쇼츠 플레이어가 열리면 YouTube를 닫아 재생을 멈춘 뒤 Focus on으로
-          돌아옵니다. 화면의 글이나 다른 앱의 내용은 저장하지 않습니다.
+          쇼츠 플레이어가 열리면 영상을 멈추고, 그 화면 위에 이유 질문 팝업을
+          띄웁니다. 고르기 전에는 YouTube를 닫거나 종료하지 않습니다. 화면의 글이나
+          다른 앱의 내용은 저장하지 않습니다.
         </p>
       </section>
     </div>

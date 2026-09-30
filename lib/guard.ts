@@ -22,7 +22,14 @@ export const HanbakjaGuard = registerPlugin<HanbakjaGuardPlugin>("HanbakjaGuard"
   web: () => import("./guard-web").then((mod) => new mod.HanbakjaGuardWeb()),
 });
 
+export function overlayGuardTarget(): GuardTarget | null {
+  if (typeof window === "undefined") return null;
+  const value = (window as Window & { __HANBAKJA_OVERLAY__?: string }).__HANBAKJA_OVERLAY__;
+  return value === "youtube" || value === "instagram" ? value : null;
+}
+
 export function isNativeAndroid(): boolean {
+  if (overlayGuardTarget()) return true;
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 

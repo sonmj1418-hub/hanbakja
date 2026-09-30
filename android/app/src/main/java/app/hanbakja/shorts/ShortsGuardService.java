@@ -1,7 +1,6 @@
 package app.hanbakja.shorts;
 
 import android.accessibilityservice.AccessibilityService;
-import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
@@ -17,9 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Notices the YouTube Shorts player and the Instagram Reels player, then opens
- * Focus on. Resource ids and activity class names only. Screen text is not
- * stored or uploaded.
+ * Notices the YouTube Shorts player and the Instagram Reels player.
+ * Shorts stays on screen, paused, with the reason flow over it. Reels still
+ * opens Focus on. Resource ids and activity class names only. Screen text is
+ * not stored or uploaded.
  */
 public class ShortsGuardService extends AccessibilityService {
     private static WeakReference<ShortsGuardService> instance = new WeakReference<>(null);
@@ -31,6 +31,17 @@ public class ShortsGuardService extends AccessibilityService {
     private long lastLaunchElapsed;
     private boolean destroyed;
     private boolean closing;
+    private final ShortsPopup shortsPopup = new ShortsPopup();
+    private final AudioManager.OnAudioFocusChangeListener focusListener = focus -> {};
+
+    private final Runnable pauseRepeater = new Runnable() {
+        @Override
+        public void run() {
+            if (destroyed || !shortsPopup.isShowing()) return;
+            pausePlayback();
+            mainHandler.postDelayed(this, 1000);
+        }
+    };
 
     private final Runnable watchTick = new Runnable() {
         @Override
@@ -51,7 +62,9 @@ public class ShortsGuardService extends AccessibilityService {
         }
         GuardState.idleAndSuppress(context, 2500);
         if ("youtube".equals(target)) {
-            bringSelf(context);
+            ShortsGuardService service = instance.get();
+            if (service != null) service.finishYoutubePrompt("leave");
+            else GuardState.idleAndSuppress(context, 2500);
             return;
         }
         if (context instanceof android.app.Activity) {
@@ -65,7 +78,14 @@ public class ShortsGuardService extends AccessibilityService {
     static void requestWatch(Context context, String target) {
         if (!GuardState.isBlockerEnabled(context)) return;
         GuardState.beginWatch(context, target);
-        if ("youtube".equals(target)) openYoutubeShorts(context);
+        if ("youtube".equals(target)) {
+            ShortsGuardService service = instance.get();
+            if (service != null && service.shortsPopup.isShowing()) {
+                service.finishYoutubePrompt("watch");
+                return;
+            }
+            openYoutubeShorts(context);
+        }
     }
 
     @Override
@@ -81,6 +101,8 @@ public class ShortsGuardService extends AccessibilityService {
     public void onDestroy() {
         destroyed = true;
         mainHandler.removeCallbacksAndMessages(null);
+        shortsPopup.dismiss(this);
+        releaseAudioFocus();
         ShortsGuardService current = instance.get();
         if (current == this) instance = new WeakReference<>(null);
         super.onDestroy();
@@ -90,6 +112,7 @@ public class ShortsGuardService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (!GuardState.isBlockerEnabled(this)) {
             closing = false;
+            dismissShortsPopup();
             return;
         }
         if (event == null || destroyed || closing || GuardState.isSuppressed(this)) return;
@@ -136,6 +159,7 @@ public class ShortsGuardService extends AccessibilityService {
         missedAway = 0;
         String kind = GuardScreens.YOUTUBE.equals(packageName) ? "youtube" : "instagram";
         GuardState.clearPlayerSession(this, kind);
+        if ("youtube".equals(kind)) dismissShortsPopup();
     }
 
     private void onTargetScreen(String kind) {
@@ -145,13 +169,13 @@ public class ShortsGuardService extends AccessibilityService {
         if (GuardState.isPrompting(this, kind)) {
             if (elapsed - lastLaunchElapsed > 1500) {
                 lastLaunchElapsed = elapsed;
-                if ("youtube".equals(kind)) closePlayerThenPrompt(kind);
+                if ("youtube".equals(kind)) showShortsPopup();
                 else bringSelfToFront();
             }
             return;
         }
         lastLaunchElapsed = elapsed;
-        if ("youtube".equals(kind)) closePlayerThenPrompt(kind);
+        if ("youtube".equals(kind)) showShortsPopup();
         else {
             GuardState.startPrompt(this, kind);
             bringSelfToFront();
@@ -159,53 +183,108 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     /**
-     * YouTube keeps playing if it is only sent backward. Leave the Shorts task
-     * with Back, then open Focus on. Reels: leave the player only, not Instagram.
+     * Pause the Shorts player and show the reason flow over it. YouTube stays
+     * open. Back and process kill happen only after the user chooses to leave.
      */
-    private void closePlayerThenPrompt(String kind) {
-        if (closing || !GuardState.isBlockerEnabled(this)) return;
-        closing = true;
-        GuardState.suppress(this, 3000);
-        GuardState.startPrompt(this, kind);
-        if ("youtube".equals(kind)) pausePlayback();
-        mainHandler.post(() -> stepAway(kind, 0));
+    private void showShortsPopup() {
+        if (!GuardState.isBlockerEnabled(this) || shortsPopup.isShowing()) return;
+        holdPause();
+        if (!shortsPopup.show(this, this::finishYoutubePrompt)) {
+            dismissShortsPopup();
+        }
     }
 
+    private void dismissShortsPopup() {
+        mainHandler.removeCallbacks(pauseRepeater);
+        shortsPopup.dismiss(this);
+        releaseAudioFocus();
+    }
+
+    private void finishYoutubePrompt(String outcome) {
+        mainHandler.removeCallbacks(pauseRepeater);
+        shortsPopup.dismiss(this);
+        if (!GuardState.isBlockerEnabled(this)) {
+            releaseAudioFocus();
+            return;
+        }
+        if ("watch".equals(outcome)) {
+            GuardState.beginWatch(this, "youtube");
+            releaseAudioFocus();
+            playPlayback();
+            mainHandler.postDelayed(this::playPlayback, 250);
+            return;
+        }
+        GuardState.idleAndSuppress(this, 2500);
+        pausePlayback();
+        mainHandler.postDelayed(() -> leaveShortsPlayer(0), 200);
+    }
+
+    /** Leave the Shorts player only. Do not close the rest of YouTube. */
+    private void leaveShortsPlayer(int attempt) {
+        if (destroyed) return;
+        boolean stillPlayer = "youtube".equals(classifyActiveWindow());
+        if (!stillPlayer || attempt >= 2) {
+            pausePlayback();
+            releaseAudioFocus();
+            return;
+        }
+        performGlobalAction(GLOBAL_ACTION_BACK);
+        mainHandler.postDelayed(() -> leaveShortsPlayer(attempt + 1), 320);
+    }
+
+    /**
+     * Reels only. Leave the player, not the whole Instagram app.
+     */
     private void stepAway(String kind, int attempt) {
-        if (destroyed || !GuardState.isBlockerEnabled(this)) {
+        if (!"instagram".equals(kind) || destroyed || !GuardState.isBlockerEnabled(this)) {
             closing = false;
             return;
         }
         String packageName = activePackage();
-        boolean youtube = "youtube".equals(kind);
-        boolean stillApp = youtube
-            ? GuardScreens.YOUTUBE.equals(packageName)
-            : GuardScreens.INSTAGRAM.equals(packageName);
-        boolean stillPlayer = kind.equals(classifyActiveWindow());
-        int limit = youtube ? 6 : 3;
-        boolean keepBacking = youtube ? stillApp && attempt < limit : stillPlayer && attempt < limit;
-        if (packageName == null && attempt < limit + 2) {
+        boolean stillPlayer = "instagram".equals(classifyActiveWindow());
+        if (packageName == null && attempt < 5) {
             mainHandler.postDelayed(() -> stepAway(kind, attempt + 1), 200);
             return;
         }
-        if (keepBacking) {
+        if (stillPlayer && attempt < 3) {
             performGlobalAction(GLOBAL_ACTION_BACK);
             mainHandler.postDelayed(() -> stepAway(kind, attempt + 1), 280);
             return;
         }
         bringSelfToFront();
-        if (youtube) {
-            mainHandler.postDelayed(() -> {
-                if (!destroyed) stopYoutubeProcess();
-                closing = false;
-            }, 350);
-            return;
-        }
         closing = false;
     }
 
     private void leaveReelsThenReturn() {
         mainHandler.postDelayed(() -> stepAway("instagram", 0), 350);
+    }
+
+    private void holdPause() {
+        pausePlayback();
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audio != null) requestAudioFocus(audio);
+        mainHandler.removeCallbacks(pauseRepeater);
+        mainHandler.postDelayed(pauseRepeater, 1000);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void requestAudioFocus(AudioManager audio) {
+        audio.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void releaseAudioFocus() {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) return;
+        audio.abandonAudioFocus(focusListener);
+    }
+
+    private void playPlayback() {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) return;
+        long now = SystemClock.uptimeMillis();
+        audio.dispatchMediaKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY, 0));
+        audio.dispatchMediaKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY, 0));
     }
 
     private void pausePlayback() {
@@ -214,12 +293,6 @@ public class ShortsGuardService extends AccessibilityService {
         long now = SystemClock.uptimeMillis();
         audio.dispatchMediaKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE, 0));
         audio.dispatchMediaKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PAUSE, 0));
-    }
-
-    private void stopYoutubeProcess() {
-        ActivityManager activities = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (activities == null) return;
-        activities.killBackgroundProcesses(GuardScreens.YOUTUBE);
     }
 
     private void tickWatch() {

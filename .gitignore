@@ -1,0 +1,27 @@
+node_modules/
+
+# Next.js and TypeScript build output
+.next/
+out/
+*.tsbuildinfo
+
+# Android / Gradle build output
+.gradle/
+**/.gradle/
+**/build/
+.kotlin/
+**/.kotlin/
+.cxx/
+**/.cxx/
+local.properties
+keystore.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+*.apks
+
+# IDE
+.idea/
+*.iml
+.DS_Store

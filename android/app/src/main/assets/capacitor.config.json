@@ -1,0 +1,8 @@
+{
+	"appId": "app.focuson.shorts",
+	"appName": "ShortsAI",
+	"webDir": "out",
+	"android": {
+		"allowMixedContent": false
+	}
+}

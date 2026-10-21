@@ -2,6 +2,7 @@ package app.focuson.shorts;
 
 import android.accessibilityservice.AccessibilityService;
 import android.app.AlarmManager;
+import android.graphics.Rect;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -72,8 +73,7 @@ public class ShortsGuardService extends AccessibilityService {
     private String lastVerdictLog;
 
     /** Set while "나가기" is in progress, to tell a failed BACK from coming back in. */
-    private String leavingKind;
-    private boolean sawOtherSinceLeave;
+    private final LeaveGate leaveGate = new LeaveGate();
 
     private GuardFlow flow;
 
@@ -127,9 +127,9 @@ public class ShortsGuardService extends AccessibilityService {
     };
 
     private final Runnable leaveCheck = () -> {
-        String kind = leavingKind;
+        String kind = leaveGate.kind();
         if (kind == null) return;
-        if (!sawOtherSinceLeave && kind.equals(classifyActiveWindow())) {
+        if (leaveGate.stillOnPlayer(classifyActiveWindow())) {
             log("나가기: BACK 후에도 플레이어 → HOME");
             performGlobalAction(GLOBAL_ACTION_HOME);
             // Keep ignoring the player until HOME has taken effect.
@@ -140,7 +140,7 @@ public class ShortsGuardService extends AccessibilityService {
     };
 
     private void clearLeaving() {
-        leavingKind = null;
+        leaveGate.clear();
         restoreAudio(false);
     }
 
@@ -416,13 +416,8 @@ public class ShortsGuardService extends AccessibilityService {
     }
 
     private void sample(String kind, String packageName) {
-        if (leavingKind != null) {
-            if (kind == null) {
-                sawOtherSinceLeave = true;
-            } else if (!sawOtherSinceLeave) {
-                return; // BACK has not taken effect yet; not a new entry.
-            }
-        }
+        // Same rule as LeaveGate.opensSheet: the player Back has not left is not a new sheet.
+        if (leaveGate.suppress(kind)) return;
         if (kind == null) {
             noteAwayFromPrompt(packageName);
         } else {
@@ -449,7 +444,7 @@ public class ShortsGuardService extends AccessibilityService {
         @Override
         public void onEntered(String kind) {
             log("▶ 진입: " + kind);
-            leavingKind = null;
+            leaveGate.clear();
             decide(kind);
         }
 
@@ -463,7 +458,7 @@ public class ShortsGuardService extends AccessibilityService {
             inPip = false;
             if (overlay != null && overlay.isShowing()) {
                 flow.abandon();
-                if (leavingKind == null) restoreAudio(false);
+                if (leaveGate.kind() == null) restoreAudio(false);
             } else if (wasPipLeaving) {
                 restoreAudio(false);
             }
@@ -681,8 +676,7 @@ public class ShortsGuardService extends AccessibilityService {
             return;
         }
         log("나가기: BACK");
-        leavingKind = kind;
-        sawOtherSinceLeave = false;
+        leaveGate.begin(kind);
         tracker.forceExit(System.currentTimeMillis(), "나가기");
         performGlobalAction(GLOBAL_ACTION_BACK);
         mainHandler.removeCallbacks(leaveCheck);
@@ -863,7 +857,7 @@ public class ShortsGuardService extends AccessibilityService {
         String packageName = packageChars.toString();
         if (!GuardScreens.isWatchedPackage(packageName)) return null;
         if (GuardScreens.YOUTUBE.equals(packageName)) return classifyYoutube(node);
-        return GuardScreens.classify(packageName, inspect(node));
+        return classifyInstagram(node);
     }
 
     /** Looks up only the known ids instead of walking the tree. */
@@ -903,32 +897,57 @@ public class ShortsGuardService extends AccessibilityService {
 
     private static String leaf(String id) {
         if (id == null) return "-";
-        return id.startsWith(GuardScreens.YOUTUBE_ID) ? id.substring(GuardScreens.YOUTUBE_ID.length()) : id;
+        int slash = id.lastIndexOf('/');
+        return slash >= 0 && slash + 1 < id.length() ? id.substring(slash + 1) : id;
     }
 
     /**
-     * Instagram only. Resource ids only. Does not call getText or read password fields.
+     * Instagram only. The known viewer and non-viewer ids, and only when the node
+     * is on screen with a real size. Does not call getText or read password fields.
+     * A 0×0 clips pager left in the window on home, DMs, profile, or explore is not Reels.
      */
-    private static GuardScreens.Hit inspect(AccessibilityNodeInfo root) {
-        List<String> ids = new ArrayList<>();
-        int[] count = new int[] {0};
-        walk(root, ids, 0, count);
-        return new GuardScreens.Hit(ids, false, false, false);
+    private String classifyInstagram(AccessibilityNodeInfo root) {
+        List<String> visible = new ArrayList<>();
+        collectOnScreen(root, GuardScreens.INSTAGRAM_REELS_IDS, visible);
+        if (!visible.isEmpty()) {
+            collectOnScreen(root, GuardScreens.INSTAGRAM_NOT_REELS_IDS, visible);
+        }
+        String kind = GuardScreens.classify(GuardScreens.INSTAGRAM, visible);
+        if (isDebuggable(this)) {
+            String line = "[판별] 릴스=" + (kind != null)
+                + " 뷰어ID=" + leaf(GuardScreens.firstExact(visible, GuardScreens.INSTAGRAM_REELS_IDS))
+                + " 다른화면ID=" + leaf(GuardScreens.firstExact(visible, GuardScreens.INSTAGRAM_NOT_REELS_IDS));
+            if (!line.equals(lastVerdictLog)) {
+                lastVerdictLog = line;
+                log(line);
+            }
+        }
+        return kind;
     }
 
-    private static void walk(AccessibilityNodeInfo node, List<String> ids, int depth, int[] count) {
-        if (node == null || depth > 30 || count[0] > 800) return;
-        count[0] += 1;
-        String id = node.getViewIdResourceName();
-        if (id != null) ids.add(id);
-        if (GuardScreens.classify(GuardScreens.INSTAGRAM, ids) != null) return;
-        int children = node.getChildCount();
-        for (int i = 0; i < children && count[0] <= 800; i++) {
-            AccessibilityNodeInfo child = node.getChild(i);
-            if (child == null) continue;
-            walk(child, ids, depth + 1, count);
-            child.recycle();
+    /** Adds each id that has a node the user can actually see. Hidden and 0×0 nodes do not count. */
+    private static void collectOnScreen(AccessibilityNodeInfo root, String[] ids, List<String> out) {
+        for (String id : ids) {
+            List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(id);
+            if (nodes == null) continue;
+            boolean onScreen = false;
+            for (AccessibilityNodeInfo node : nodes) {
+                if (node == null) continue;
+                try {
+                    if (nodeOnScreen(node)) onScreen = true;
+                } finally {
+                    node.recycle();
+                }
+            }
+            if (onScreen) out.add(id);
         }
+    }
+
+    private static boolean nodeOnScreen(AccessibilityNodeInfo node) {
+        if (!node.isVisibleToUser()) return false;
+        Rect bounds = new Rect();
+        node.getBoundsInScreen(bounds);
+        return GuardScreens.countsOnScreen(true, bounds.width(), bounds.height());
     }
 
     // --- Logging ---------------------------------------------------------------

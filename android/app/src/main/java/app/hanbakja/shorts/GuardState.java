@@ -64,6 +64,18 @@ public final class GuardState {
         }
     }
 
+    /** Drop a queued in-app handoff. A watch already in progress stays. */
+    public static void clearPendingPrompt(Context context) {
+        synchronized (LOCK) {
+            SharedPreferences prefs = prefs(context);
+            if (!PROMPTING.equals(prefs.getString(KEY_MODE, IDLE))) return;
+            prefs.edit()
+                .putString(KEY_MODE, IDLE)
+                .putString(KEY_TARGET, "")
+                .commit();
+        }
+    }
+
     public static String pendingTarget(Context context) {
         synchronized (LOCK) {
             SharedPreferences prefs = prefs(context);

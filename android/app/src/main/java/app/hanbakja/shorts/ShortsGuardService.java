@@ -17,9 +17,9 @@ import java.util.List;
 
 /**
  * Notices the YouTube Shorts player and the Instagram Reels player.
- * Shorts stays on screen, paused, with the reason flow over it. Reels still
- * opens Focus on. Resource ids and activity class names only. Screen text is
- * not stored or uploaded.
+ * Both stay on screen, paused, with the same reason sheet over the video.
+ * The sheet says 릴스 on Reels and 쇼츠 on Shorts. Resource ids and activity
+ * class names only. Screen text is not stored or uploaded.
  */
 public class ShortsGuardService extends AccessibilityService {
     private static WeakReference<ShortsGuardService> instance = new WeakReference<>(null);
@@ -28,10 +28,10 @@ public class ShortsGuardService extends AccessibilityService {
     private int missedWatchChecks;
     private int missedAway;
     private long lastScanUptime;
-    private long lastLaunchElapsed;
     private boolean destroyed;
     private boolean closing;
     private final ShortsPopup shortsPopup = new ShortsPopup();
+    private String sheetTarget;
     private final AudioManager.OnAudioFocusChangeListener focusListener = focus -> {};
 
     private final Runnable pauseRepeater = new Runnable() {
@@ -61,31 +61,19 @@ public class ShortsGuardService extends AccessibilityService {
             return;
         }
         GuardState.idleAndSuppress(context, 2500);
-        if ("youtube".equals(target)) {
-            ShortsGuardService service = instance.get();
-            if (service != null) service.finishYoutubePrompt("leave");
-            else GuardState.idleAndSuppress(context, 2500);
-            return;
-        }
-        if (context instanceof android.app.Activity) {
-            ((android.app.Activity) context).moveTaskToBack(true);
-        }
         ShortsGuardService service = instance.get();
-        if (service != null) service.leaveReelsThenReturn();
-        else bringSelf(context);
+        if (service != null) service.finishSheet(target, "leave");
     }
 
     static void requestWatch(Context context, String target) {
         if (!GuardState.isBlockerEnabled(context)) return;
         GuardState.beginWatch(context, target);
-        if ("youtube".equals(target)) {
-            ShortsGuardService service = instance.get();
-            if (service != null && service.shortsPopup.isShowing()) {
-                service.finishYoutubePrompt("watch");
-                return;
-            }
-            openYoutubeShorts(context);
+        ShortsGuardService service = instance.get();
+        if (service != null && service.shortsPopup.isShowing()) {
+            service.finishSheet(target, "watch");
+            return;
         }
+        if ("youtube".equals(target)) openYoutubeShorts(context);
     }
 
     @Override
@@ -93,6 +81,7 @@ public class ShortsGuardService extends AccessibilityService {
         super.onServiceConnected();
         destroyed = false;
         instance = new WeakReference<>(this);
+        GuardState.clearPendingPrompt(this);
         mainHandler.removeCallbacks(watchTick);
         mainHandler.postDelayed(watchTick, 1000);
     }
@@ -159,37 +148,27 @@ public class ShortsGuardService extends AccessibilityService {
         missedAway = 0;
         String kind = GuardScreens.YOUTUBE.equals(packageName) ? "youtube" : "instagram";
         GuardState.clearPlayerSession(this, kind);
-        if ("youtube".equals(kind)) dismissShortsPopup();
+        if (GuardSheet.usesNativeSheet(kind)) dismissShortsPopup();
     }
 
     private void onTargetScreen(String kind) {
+        if (!GuardSheet.usesNativeSheet(kind)) return;
         if (!GuardState.isBlockerEnabled(this) || GuardState.isSuppressed(this) || closing) return;
         if (kind.equals(GuardState.watchTarget(this))) return;
-        long elapsed = SystemClock.elapsedRealtime();
-        if (GuardState.isPrompting(this, kind)) {
-            if (elapsed - lastLaunchElapsed > 1500) {
-                lastLaunchElapsed = elapsed;
-                if ("youtube".equals(kind)) showShortsPopup();
-                else bringSelfToFront();
-            }
-            return;
-        }
-        lastLaunchElapsed = elapsed;
-        if ("youtube".equals(kind)) showShortsPopup();
-        else {
-            GuardState.startPrompt(this, kind);
-            bringSelfToFront();
-        }
+        showSheet(kind);
     }
 
     /**
-     * Pause the Shorts player and show the reason flow over it. YouTube stays
-     * open. Back and process kill happen only after the user chooses to leave.
+     * Pause the player and show the reason sheet over it. YouTube and Instagram
+     * stay open. Back happens only after the user chooses to leave.
      */
-    private void showShortsPopup() {
+    private void showSheet(String kind) {
+        if (!GuardSheet.usesNativeSheet(kind)) return;
         if (!GuardState.isBlockerEnabled(this) || shortsPopup.isShowing()) return;
+        sheetTarget = kind;
         holdPause();
-        if (!shortsPopup.show(this, this::finishYoutubePrompt)) {
+        if (!shortsPopup.show(this, kind, outcome -> finishSheet(kind, outcome))) {
+            sheetTarget = null;
             dismissShortsPopup();
         }
     }
@@ -200,15 +179,21 @@ public class ShortsGuardService extends AccessibilityService {
         releaseAudioFocus();
     }
 
-    private void finishYoutubePrompt(String outcome) {
+    private void finishSheet(String kind, String outcome) {
+        String target = GuardSheet.usesNativeSheet(kind) ? kind : sheetTarget;
         mainHandler.removeCallbacks(pauseRepeater);
         shortsPopup.dismiss(this);
+        sheetTarget = null;
+        if (target == null) {
+            releaseAudioFocus();
+            return;
+        }
         if (!GuardState.isBlockerEnabled(this)) {
             releaseAudioFocus();
             return;
         }
         if ("watch".equals(outcome)) {
-            GuardState.beginWatch(this, "youtube");
+            GuardState.beginWatch(this, target);
             releaseAudioFocus();
             playPlayback();
             mainHandler.postDelayed(this::playPlayback, 250);
@@ -216,47 +201,20 @@ public class ShortsGuardService extends AccessibilityService {
         }
         GuardState.idleAndSuppress(this, 2500);
         pausePlayback();
-        mainHandler.postDelayed(() -> leaveShortsPlayer(0), 200);
+        mainHandler.postDelayed(() -> leavePlayer(target, 0), 200);
     }
 
-    /** Leave the Shorts player only. Do not close the rest of YouTube. */
-    private void leaveShortsPlayer(int attempt) {
-        if (destroyed) return;
-        boolean stillPlayer = "youtube".equals(classifyActiveWindow());
+    /** Leave that player only. Do not close the rest of YouTube or Instagram. */
+    private void leavePlayer(String kind, int attempt) {
+        if (destroyed || !GuardSheet.usesNativeSheet(kind)) return;
+        boolean stillPlayer = kind.equals(classifyActiveWindow());
         if (!stillPlayer || attempt >= 2) {
             pausePlayback();
             releaseAudioFocus();
             return;
         }
         performGlobalAction(GLOBAL_ACTION_BACK);
-        mainHandler.postDelayed(() -> leaveShortsPlayer(attempt + 1), 320);
-    }
-
-    /**
-     * Reels only. Leave the player, not the whole Instagram app.
-     */
-    private void stepAway(String kind, int attempt) {
-        if (!"instagram".equals(kind) || destroyed || !GuardState.isBlockerEnabled(this)) {
-            closing = false;
-            return;
-        }
-        String packageName = activePackage();
-        boolean stillPlayer = "instagram".equals(classifyActiveWindow());
-        if (packageName == null && attempt < 5) {
-            mainHandler.postDelayed(() -> stepAway(kind, attempt + 1), 200);
-            return;
-        }
-        if (stillPlayer && attempt < 3) {
-            performGlobalAction(GLOBAL_ACTION_BACK);
-            mainHandler.postDelayed(() -> stepAway(kind, attempt + 1), 280);
-            return;
-        }
-        bringSelfToFront();
-        closing = false;
-    }
-
-    private void leaveReelsThenReturn() {
-        mainHandler.postDelayed(() -> stepAway("instagram", 0), 350);
+        mainHandler.postDelayed(() -> leavePlayer(kind, attempt + 1), 320);
     }
 
     private void holdPause() {
@@ -348,18 +306,6 @@ public class ShortsGuardService extends AccessibilityService {
         } finally {
             root.recycle();
         }
-    }
-
-    private void bringSelfToFront() {
-        bringSelf(this);
-    }
-
-    private static void bringSelf(Context context) {
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-            | Intent.FLAG_ACTIVITY_SINGLE_TOP
-            | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        context.startActivity(intent);
     }
 
     private static void openYoutubeShorts(Context context) {

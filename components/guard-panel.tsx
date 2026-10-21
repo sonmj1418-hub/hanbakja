@@ -55,8 +55,8 @@ export function GuardPanel() {
             {blocker === null
               ? "개입 스위치를 확인하고 있습니다."
               : blockerOn
-                ? "켜져 있습니다. Shorts와 Reels 플레이어가 열리면 그 앱을 닫고 Level 흐름을 엽니다."
-                : "꺼져 있습니다. 접근성 서비스가 켜져 있어도 YouTube와 Instagram을 닫지 않고, Level 흐름을 열지 않습니다."}
+                ? "켜져 있습니다. Shorts와 Reels 플레이어가 열리면 영상을 멈추고, 그 화면 위에 같은 Level 흐름을 띄웁니다."
+                : "꺼져 있습니다. 접근성 서비스가 켜져 있어도 플레이어 위에 시트를 띄우지 않고, Level 흐름을 열지 않습니다."}
           </p>
         </div>
         <Switch
@@ -77,11 +77,12 @@ export function GuardPanel() {
       <p className="text-sm leading-6 text-muted-foreground">
         안드로이드에서 접근성 서비스를 직접 켜면, YouTube Shorts 플레이어와
         Instagram Reels 플레이어가 열릴 때 같은 이유 질문과 Level 1~3 개입이
-        나옵니다. 쇼츠 플레이어는 영상을 멈추고, YouTube를 나가지 않은 채로 그 화면
-        위에 이유 질문을 띄웁니다. 고르기 전에는 YouTube를 닫거나 종료하지 않습니다.
-        홈의 쇼츠 선반, 일반 영상, Instagram 피드와 스토리는 열어도 개입이 나오지
-        않습니다. 위의 스위치를 끄면 이 개입은 멈추고, 접근성 서비스는 그대로
-        두어도 됩니다.
+        그 화면 위에 나옵니다. 둘 다 영상을 멈추고, 앱을 나가지 않은 채로 팝업을
+        띄웁니다. 고르기 전에는 YouTube나 Instagram을 닫거나 종료하지 않습니다.
+        릴스 팝업의 글은 릴스이고, 쇼츠 팝업의 글은 쇼츠입니다. 홈의 쇼츠 열기
+        연습은 이 팝업이 아닙니다. 홈의 쇼츠 선반, 일반 영상, Instagram 피드와
+        스토리는 열어도 개입이 나오지 않습니다. 위의 스위치를 끄면 이 개입은
+        멈추고, 접근성 서비스는 그대로 두어도 됩니다.
       </p>
       <p className="text-sm leading-6 text-muted-foreground">
         기록은 이 기기에만 남습니다. 화면의 글, 메시지, 비밀번호, 계정은 저장하거나

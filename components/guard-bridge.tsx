@@ -11,6 +11,11 @@ import {
   isNativeAndroid,
 } from "@/lib/guard";
 
+/**
+ * Follows a pending in-app handoff. The Shorts and Reels sheets are the
+ * accessibility overlay and do not set a pending target, so a new player does
+ * not open /watch here. The practice feed has no guard target.
+ */
 export function GuardBridge() {
   const router = useRouter();
   const pathname = usePathname();

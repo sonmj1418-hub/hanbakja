@@ -21,6 +21,14 @@ import {
   REASONS,
   type Alternative,
 } from "@/lib/logic";
+import {
+  nativeSheetHint,
+  sheetLockConfirm,
+  sheetLockOffer,
+  sheetReasonTitle,
+  sheetWatchAgain,
+  sheetWatchLabel,
+} from "@/lib/sheet-copy";
 import type { InterventionInput, Level } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -153,18 +161,12 @@ export function InterventionFlow({
             tabIndex={-1}
             className="text-3xl font-semibold tracking-tight outline-none"
           >
-            {sourceLabel?.includes("Reels")
-              ? "왜 릴스를 실행하셨나요?"
-              : "왜 쇼츠를 실행하셨나요?"}
+            {sheetReasonTitle(sourceLabel)}
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             이유를 고르기 전에는 피드가 열리지 않습니다. 나가기는 선택 없이도
             됩니다.
-            {sourceLabel?.includes("YouTube")
-              ? " 나가기를 고르면 이 창만 닫히고 쇼츠는 이어서 재생되지 않습니다. 쇼츠 보기를 고르면 멈춘 영상이 다시 재생됩니다."
-              : sourceLabel
-                ? " 나가기, 강제 종료, 시간 차단을 고르면 그 화면을 닫고 Focus on으로 돌아갑니다."
-                : ""}
+            {nativeSheetHint(sourceLabel)}
           </p>
           <div className="mt-5 space-y-2" role="listbox" aria-label="실행 이유">
             {REASONS.map((item) => {
@@ -263,7 +265,7 @@ export function InterventionFlow({
                   })
                 }
               >
-                쇼츠 보기
+                {sheetWatchLabel(sourceLabel)}
               </Button>
             ) : null}
             <Button type="button" variant="outline" className="h-11" onClick={exitNow}>
@@ -410,8 +412,8 @@ export function InterventionFlow({
             {actionDone ? "대체행동을 마쳤습니다." : "대체행동을 건너뛰었습니다."}
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            {alternative?.label ?? "대체행동"} 이후에도 쇼츠를 볼지 골라 주세요. 이
-            선택이 통계의 재실행 여부로 남습니다.
+            {alternative?.label ?? "대체행동"} 이후에도 {sheetWatchAgain(sourceLabel)} 골라
+            주세요. 이 선택이 통계의 재실행 여부로 남습니다.
           </p>
           <div className="mt-auto flex flex-col gap-2 pt-8">
             <Button
@@ -462,7 +464,7 @@ export function InterventionFlow({
           </h1>
           <p className="mt-3 text-sm leading-6 text-[oklch(0.8_0.02_80)]">
             누적 {formatClock(usageSeconds)}. 한 번 더 이어지면 금방 더 길어집니다.
-            이번 시청을 끝내거나, 일정 시간 쇼츠 열기를 막을 수 있습니다.
+            이번 시청을 끝내거나, {sheetLockOffer(sourceLabel)}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Button
@@ -518,8 +520,7 @@ export function InterventionFlow({
             {blockMinutes === 60 ? "1시간" : `${blockMinutes}분`} 동안 막을까요?
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            이 시간이 끝나기 전에는 쇼츠 피드가 열리지 않습니다. 차단 시간은 실제
-            분입니다.
+            {sheetLockConfirm(sourceLabel)}
           </p>
           <div className="mt-auto flex flex-col gap-2 pt-8">
             <Button

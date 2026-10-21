@@ -24,8 +24,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Card over the current screen. YouTube stays where it is; this view does not
- * start an activity or press Home.
+ * Card over the current screen. YouTube and Instagram stay where they are;
+ * this view does not start an activity or press Home.
  */
 final class ShortsPopup {
     interface ChoiceListener {
@@ -35,6 +35,7 @@ final class ShortsPopup {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private FrameLayout root;
     private WebView webView;
+    private String sheetTarget = "youtube";
     private boolean showing;
     private boolean chosen;
 
@@ -43,8 +44,10 @@ final class ShortsPopup {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    boolean show(Context context, ChoiceListener listener) {
+    boolean show(Context context, String target, ChoiceListener listener) {
         if (showing) return true;
+        if (!GuardSheet.usesNativeSheet(target)) return false;
+        sheetTarget = target;
         WindowManager windows = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         if (windows == null) return false;
 
@@ -107,7 +110,7 @@ final class ShortsPopup {
         }
         showing = true;
         chosen = false;
-        webView.loadUrl("https://localhost/watch/?guard=youtube");
+        webView.loadUrl(GuardSheet.overlayUrl(sheetTarget));
         return true;
     }
 
@@ -150,7 +153,7 @@ final class ShortsPopup {
         }
     }
 
-    private static WebResourceResponse assetResponse(Context context, WebResourceRequest request) {
+    private WebResourceResponse assetResponse(Context context, WebResourceRequest request) {
         if (request == null || request.getUrl() == null) return null;
         if (!"https".equals(request.getUrl().getScheme())) return null;
         if (!"localhost".equals(request.getUrl().getHost())) return null;
@@ -166,7 +169,7 @@ final class ShortsPopup {
             if (relative.endsWith(".html")) {
                 byte[] bytes = readBytes(input);
                 String html = new String(bytes, StandardCharsets.UTF_8);
-                String script = "<script>window.__HANBAKJA_OVERLAY__='youtube';</script>";
+                String script = GuardSheet.overlayMarker(sheetTarget);
                 int head = html.indexOf("<head>");
                 if (head >= 0) {
                     html = html.substring(0, head + 6) + script + html.substring(head + 6);

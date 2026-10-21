@@ -22,6 +22,7 @@ export const HanbakjaGuard = registerPlugin<HanbakjaGuardPlugin>("HanbakjaGuard"
   web: () => import("./guard-web").then((mod) => new mod.HanbakjaGuardWeb()),
 });
 
+/** Injected by the overlay. Shorts and Reels share that sheet. The practice feed does not set this. */
 export function overlayGuardTarget(): GuardTarget | null {
   if (typeof window === "undefined") return null;
   const value = (window as Window & { __HANBAKJA_OVERLAY__?: string }).__HANBAKJA_OVERLAY__;

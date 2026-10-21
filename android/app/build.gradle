@@ -3,9 +3,10 @@ import groovy.json.JsonSlurper
 apply plugin: 'com.android.application'
 
 // One version for web and APK: package.json "version" (e.g. 0.7.0 -> versionCode 700).
+// The shipped 0.9.0 debug APK already used that code (900), so add 1 to install over it.
 def appVersionName = new JsonSlurper().parse(rootProject.file('../package.json')).version
 def appVersionCode = appVersionName.tokenize('-')[0].tokenize('.').collect { it as int }
-    .with { it[0] * 10000 + it[1] * 100 + it[2] }
+    .with { it[0] * 10000 + it[1] * 100 + it[2] } + 1
 
 // Release signing. android/keystore.properties and the .jks stay out of git.
 def keystoreFile = rootProject.file('keystore.properties')

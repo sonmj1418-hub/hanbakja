@@ -71,6 +71,8 @@ describe("settings", () => {
       aiEnabled: true,
       strictMode: false,
       goalWeekAnswered: "",
+      usageSyncEnabled: false,
+      usageSyncAsked: false,
     });
     assert.equal(settings.level1Threshold, 15);
     assert.equal(settings.level3Threshold, 30);
@@ -85,6 +87,8 @@ describe("settings", () => {
     assert.equal(settings.finalGoal, 10);
     assert.equal(settings.dayEndHour, 6);
     assert.equal(settings.interestTopic, "");
+    assert.equal(settings.usageSyncEnabled, false);
+    assert.equal(settings.usageSyncAsked, false);
   });
 });
 

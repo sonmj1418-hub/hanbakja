@@ -1,4 +1,5 @@
 import { asTarget, finalizeSession, todayKey } from "./logic.ts";
+import { knownMethod } from "./usage-sync.ts";
 import type {
   ActiveSession,
   AppData,
@@ -30,6 +31,8 @@ export function defaultSettings(): Settings {
     aiEnabled: true,
     strictMode: false,
     goalWeekAnswered: "",
+    usageSyncEnabled: false,
+    usageSyncAsked: false,
   };
 }
 
@@ -47,6 +50,8 @@ export function settingsFromGoal(
     | "aiEnabled"
     | "strictMode"
     | "goalWeekAnswered"
+    | "usageSyncEnabled"
+    | "usageSyncAsked"
   >,
 ): Settings {
   return {
@@ -189,6 +194,7 @@ export function readIntervention(value: unknown): InterventionLog | null {
     cardCorrect: typeof log.cardCorrect === "boolean" ? log.cardCorrect : null,
     extensionIndex: count(log.extensionIndex),
     policyVersion: text(log.policyVersion),
+    method: knownMethod(log.method),
   };
 }
 
@@ -256,6 +262,8 @@ export function readSettings(value: unknown): Settings {
     aiEnabled: raw.aiEnabled !== false,
     strictMode: raw.strictMode === true,
     goalWeekAnswered: typeof raw.goalWeekAnswered === "string" ? raw.goalWeekAnswered : "",
+    usageSyncEnabled: raw.usageSyncEnabled === true,
+    usageSyncAsked: raw.usageSyncAsked === true,
   };
   const goal =
     Number.isFinite(level3) && level3 >= 1 && level3 <= 360 ? Math.round(level3) : defaults.level3Threshold;

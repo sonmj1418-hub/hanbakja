@@ -67,7 +67,7 @@ export function AiPanel() {
           </Label>
           <p className="text-sm leading-6 text-muted-foreground">
             내 기록을 보고, 나에게 잘 맞는 개입 방식과 문구를 고르고, 평소 오래 보는 시간에는
-            조금 더 짧게 잡습니다. 계산은 모두 이 폰 안에서 하고, 기록은 밖으로 보내지 않습니다.
+            조금 더 짧게 잡습니다. 계산은 모두 이 폰 안에서 합니다.
             끄면 정해진 규칙대로 번갈아 보여 줍니다.
           </p>
         </div>

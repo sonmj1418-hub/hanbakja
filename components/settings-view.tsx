@@ -96,6 +96,8 @@ export function SettingsView() {
         aiEnabled: data.settings.aiEnabled,
         strictMode: data.settings.strictMode,
         goalWeekAnswered: data.settings.goalWeekAnswered,
+        usageSyncEnabled: data.settings.usageSyncEnabled,
+        usageSyncAsked: data.settings.usageSyncAsked,
       }),
     );
     setError(null);
@@ -294,12 +296,37 @@ export function SettingsView() {
 
       <Separator />
 
+      <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-foreground/10">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label htmlFor="usage-sync" className="text-base font-medium">
+              사용 기록을 서버에 보내기
+            </Label>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              기록은 이 휴대폰에 남습니다. 스위치를 켜면 세션, 개입, 잠금 시도도 서버로 보냅니다.
+            </p>
+          </div>
+          <Switch
+            id="usage-sync"
+            checked={data.settings.usageSyncEnabled}
+            onCheckedChange={(checked) => {
+              saveSettings({
+                ...data.settings,
+                usageSyncEnabled: Boolean(checked),
+                usageSyncAsked: true,
+              });
+            }}
+          />
+        </div>
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-base font-medium">기록 초기화</h2>
         <p className="text-sm leading-6 text-muted-foreground">
-          {storageKind === "sqlite" ? "이 기기에" : "이 브라우저에"} 저장된 사용 시간,
+          {storageKind === "sqlite" ? "이 휴대폰에" : "이 브라우저에"} 저장된 사용 시간,
           개입, 잠금 시도, 차단을 지웁니다. 설정은 기본값으로 돌아갑니다. 공부 카드는
-          남기고 푼 횟수만 지웁니다.
+          남기고 푼 횟수만 지웁니다. 서버로 보낸 기록이 있으면 이 설치의 기록도 지워 달라고
+          합니다. 서버에 닿지 못하면 여기의 기록은 지우고, 삭제 요청은 남겨 다음에 다시 시도합니다.
         </p>
         {confirmReset ? (
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -372,7 +399,8 @@ export function SettingsView() {
           브라우저에서는 다른 앱을 막지 않습니다. 안드로이드 설치본은 접근성을 켠
           뒤에 YouTube Shorts 플레이어와 Instagram Reels 플레이어만 구분합니다.
           둘 다 영상이 멈추고 그 위에 같은 질문이 뜹니다. 화면의 글이나 다른 앱의 내용은
-          읽거나 저장하지 않고, 기록은 이 기기 밖으로 보내지 않습니다.
+          읽거나 저장하지 않습니다. 사용 기록은 이 휴대폰에 남고, 보내기로 한 경우에만
+          세션, 개입, 잠금 시도가 서버로도 갑니다.
         </p>
       </section>
     </div>

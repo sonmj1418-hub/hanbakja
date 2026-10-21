@@ -104,6 +104,7 @@ const INTERVENTION_COLUMNS: [string, string][] = [
   ["card_correct", "INTEGER"],
   ["extension_index", "INTEGER NOT NULL DEFAULT 0"],
   ["policy_version", "TEXT"],
+  ["method", "TEXT"],
 ];
 
 type Statement = { statement: string; values: unknown[] };
@@ -170,8 +171,8 @@ function interventionRow(log: InterventionLog): Statement {
     statement: `INSERT OR REPLACE INTO interventions (id, created_at, date, hour, weekday, target, level, reason, reason_note,
       intervention_type, alternative_action, alternative_completed, outcome, re_entered, blocked, block_minutes,
       usage_seconds, reentered_within_30min, feedback, band, stage, framing, verification, reflection, after_lock,
-      commit_minutes, card_id, card_correct, extension_index, policy_version)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      commit_minutes, card_id, card_correct, extension_index, policy_version, method)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     values: [
       log.interventionId,
       log.timestamp,
@@ -203,6 +204,7 @@ function interventionRow(log: InterventionLog): Statement {
       log.cardCorrect === null ? null : bit(log.cardCorrect),
       log.extensionIndex,
       log.policyVersion,
+      log.method,
     ],
   };
 }
@@ -289,6 +291,7 @@ function fromInterventionRow(row: Row): InterventionLog | null {
       row.card_correct === null || row.card_correct === undefined ? null : Number(row.card_correct) === 1,
     extensionIndex: Number(row.extension_index ?? 0),
     policyVersion: row.policy_version ?? null,
+    method: row.method ?? null,
   });
 }
 
@@ -366,7 +369,7 @@ function statementsFor(op: Op): Statement[] {
         { statement: "DELETE FROM interventions", values: [] },
         { statement: "DELETE FROM lock_attempts", values: [] },
         { statement: "UPDATE cards SET shown = 0, correct = 0", values: [] },
-        { statement: "DELETE FROM settings WHERE key != 'migrated'", values: [] },
+        { statement: "DELETE FROM settings WHERE key NOT IN ('migrated', 'install_id', 'usageOutbox')", values: [] },
       ];
   }
 }
@@ -437,4 +440,46 @@ export async function migrateFromLocalStorage(): Promise<number> {
     localStorage.removeItem(STORAGE_KEY);
   }
   return data ? data.usageLogs.length + data.interventions.length : 0;
+}
+
+const SYNC_INSTALL = "install_id";
+const SYNC_OUTBOX = "usageOutbox";
+
+function parseSetting(value: unknown): unknown {
+  if (typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+/** 설치 id와 업로드 대기열. 기록 초기화가 지우는 표와 따로 둔다. */
+export async function readSyncState(): Promise<{ installId: string | null; outbox: unknown }> {
+  const db = await database();
+  const result = await db.query(
+    "SELECT key, value FROM settings WHERE key IN ('install_id', 'usageOutbox')",
+  );
+  let installId: string | null = null;
+  let outbox: unknown = null;
+  for (const row of (result.values ?? []) as { key?: unknown; value?: unknown }[]) {
+    if (row.key === SYNC_INSTALL) {
+      const parsed = parseSetting(row.value);
+      installId = typeof parsed === "string" ? parsed : null;
+    } else if (row.key === SYNC_OUTBOX) {
+      outbox = parseSetting(row.value);
+    }
+  }
+  return { installId, outbox };
+}
+
+export async function writeSyncState(installId: string, outbox: unknown): Promise<void> {
+  const db = await database();
+  await db.executeSet(
+    [
+      settingRow(SYNC_INSTALL, installId),
+      { statement: "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", values: [SYNC_OUTBOX, JSON.stringify(outbox)] },
+    ],
+    true,
+  );
 }

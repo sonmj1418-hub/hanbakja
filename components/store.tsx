@@ -31,6 +31,7 @@ import {
   type NotifyPermission,
 } from "@/lib/notify";
 import { backend, loadWithFallback, type Op } from "@/lib/persist";
+import { loadSyncState, resetUsageSync, runSync, syncPending } from "@/lib/sync-state";
 import { clearData, defaultData } from "@/lib/storage";
 import type {
   AppData,
@@ -78,11 +79,21 @@ type StoreContextValue = {
   scheduleDetach: () => void;
   requestNotificationPermission: () => Promise<string | null>;
   previewNotification: () => Promise<string | null>;
+  answerUsageSync: (agree: boolean) => void;
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
 type Change = { next: AppData; ops: Op[] };
+
+/** 동의한 뒤에 이미 기기에 있는 집계도 빠짐없이 올리려고, 저장분 전체를 후보로 넣는다. 보낸 event_id는 다시 넣지 않는다. */
+function usageRows(data: AppData): Op[] {
+  return [
+    ...data.usageLogs.map((row) => ({ kind: "session" as const, row })),
+    ...data.interventions.map((row) => ({ kind: "intervention" as const, row })),
+    ...data.lockAttempts.map((row) => ({ kind: "lock" as const, row })),
+  ];
+}
 
 /** 연습 피드 세션 한 줄과 열린 세션 상태를 저장하는 변경. */
 function practiceOps(next: AppData, usageId: string | undefined): Op[] {
@@ -115,7 +126,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return backend()
       .apply(change.next, change.ops)
       .then(
-        () => setSaveError(null),
+        () => {
+          setSaveError(null);
+          // 로컬 저장이 끝난 뒤에만 올린다. 업로드 실패는 앱 저장을 실패로 만들지 않는다.
+          const rows = usageRows(change.next);
+          void runSync(() =>
+            syncPending({
+              ops: change.next.settings.usageSyncEnabled ? [...change.ops, ...rows] : change.ops,
+              enabled: change.next.settings.usageSyncEnabled,
+              activeUsageId: change.next.activeSession?.usageId ?? null,
+            }),
+          ).catch(() => undefined);
+        },
         (error: unknown) => {
           setSaveError(SAVE_ERROR);
           throw error;
@@ -138,6 +160,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData(loaded.corrupt ? null : loaded.data);
       setStorageKind(backend().kind);
       setSaveError(loaded.fallback ? FALLBACK_ERROR : null);
+      await loadSyncState();
     } catch {
       setCorrupt(true);
       setData(null);
@@ -173,15 +196,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...defaultData(),
       cards: (dataRef.current?.cards ?? []).map((card) => ({ ...card, shown: 0, correct: 0 })),
     };
-    if (backend().kind === "local") clearData();
-    dataRef.current = dataRef.current ?? fresh;
-    await mutate(() => ({
-      next: fresh,
-      ops: [{ kind: "clear" }, { kind: "settings", settings: fresh.settings }],
-    })).catch(() => undefined);
-    if (isNativeAndroid()) await HanbakjaGuard.resetRecords().catch(() => undefined);
-    setCorrupt(false);
-  }, [mutate]);
+    await runSync(async () => {
+      await resetUsageSync().catch(() => undefined);
+      if (backend().kind === "local") clearData();
+      dataRef.current = fresh;
+      setData(fresh);
+      setCorrupt(false);
+      try {
+        await backend().apply(fresh, [
+          { kind: "clear" },
+          { kind: "settings", settings: fresh.settings },
+        ]);
+        setSaveError(null);
+      } catch {
+        setSaveError(SAVE_ERROR);
+      }
+      if (isNativeAndroid()) await HanbakjaGuard.resetRecords().catch(() => undefined);
+    });
+  }, []);
 
   const dismissSaveError = useCallback(() => setSaveError(null), []);
 
@@ -483,6 +515,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearInterval(id);
   }, [fire, ready]);
 
+  // 동의 뒤에도 업로드가 실패하면, 새 기록이 없어도 대기열을 다시 보낸다.
+  const usageSyncEnabled = data?.settings.usageSyncEnabled ?? false;
+  useEffect(() => {
+    if (!ready) return;
+    const tick = () => {
+      const current = dataRef.current;
+      if (!current) return;
+      void runSync(() =>
+        syncPending({
+          ops: current.settings.usageSyncEnabled ? usageRows(current) : [],
+          enabled: current.settings.usageSyncEnabled,
+          activeUsageId: current.activeSession?.usageId ?? null,
+        }),
+      ).catch(() => undefined);
+    };
+    tick();
+    const id = window.setInterval(tick, 15_000);
+    return () => window.clearInterval(id);
+  }, [ready, usageSyncEnabled]);
+
+  const answerUsageSync = useCallback(
+    (agree: boolean) => {
+      fire((current) => {
+        const settings = {
+          ...current.settings,
+          usageSyncEnabled: agree,
+          usageSyncAsked: true,
+        };
+        return { next: { ...current, settings }, ops: [{ kind: "settings" as const, settings }] };
+      });
+    },
+    [fire],
+  );
+
   const requestNotificationPermission = useCallback(async () => {
     const result = await requestNotifyPermission();
     setPermission(result);
@@ -535,6 +601,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       scheduleDetach,
       requestNotificationPermission,
       previewNotification,
+      answerUsageSync,
     }),
     [
       ready,
@@ -565,6 +632,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       scheduleDetach,
       requestNotificationPermission,
       previewNotification,
+      answerUsageSync,
     ],
   );
 

@@ -43,6 +43,10 @@ export type Settings = {
   strictMode: boolean;
   /** 주간 목표 제안을 이미 답한 주 (월요일 날짜). */
   goalWeekAnswered: string;
+  /** 사용 집계를 서버로 보낸다. 동의하기 전에는 꺼져 있다. */
+  usageSyncEnabled: boolean;
+  /** 첫 실행에서 서버 전송을 물어 봤는지. */
+  usageSyncAsked: boolean;
 };
 
 export type SessionTarget = "youtube" | "instagram" | "practice";
@@ -123,6 +127,8 @@ export type InterventionLog = {
   cardCorrect: boolean | null;
   extensionIndex: number;
   policyVersion: string | null;
+  /** 개입 방식 이름. pause, breath, card 같은 정해진 값만. 문장은 아니다. */
+  method: string | null;
 };
 
 /** 내 공부 카드. 직접 입력하거나 ChatGPT·Gemini 결과를 붙여넣어 만든다. */
@@ -225,6 +231,7 @@ export type InterventionInput = Omit<
   | "cardCorrect"
   | "extensionIndex"
   | "policyVersion"
+  | "method"
 > & { target?: SessionTarget | null };
 
 /** 접근성 서비스가 쌓아 둔 기록. GuardPlugin.sync()가 넘겨준다. 시각은 epoch ms. */

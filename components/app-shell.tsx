@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartColumn, House, NotebookText, Settings } from "lucide-react";
 import { useStore } from "@/components/store";
+import { UsageSyncPrompt } from "@/components/usage-sync-prompt";
 import { isReportDue, todayKey } from "@/lib/logic";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +89,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (corrupt) return <CorruptScreen />;
 
   if (immersive) {
-    return <div className="min-h-dvh">{children}</div>;
+    return (
+      <>
+        <div className="min-h-dvh">{children}</div>
+        {data && !data.settings.usageSyncAsked ? <UsageSyncPrompt /> : null}
+      </>
+    );
   }
 
   return (
@@ -174,6 +180,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </ul>
       </nav>
+      {data && !data.settings.usageSyncAsked ? <UsageSyncPrompt /> : null}
     </div>
   );
 }

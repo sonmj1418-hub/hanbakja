@@ -12,6 +12,7 @@ import type {
   Settings,
   UsageLog,
 } from "./types.ts";
+import { knownMethod } from "./usage-sync.ts";
 
 export const REASONS: { id: string; hint: string }[] = [
   { id: "심심해서", hint: "특별한 목적 없이 시간을 보내려고" },
@@ -691,6 +692,7 @@ export function buildIntervention(
     cardCorrect: null,
     extensionIndex: 0,
     policyVersion: null,
+    method: knownMethod(INTERVENTION_TYPE[input.level]),
   };
 }
 
@@ -806,6 +808,7 @@ export function convertNativeBatch(
         cardCorrect: typeof row.cardCorrect === "boolean" ? row.cardCorrect : null,
         extensionIndex: Math.max(0, Math.round(row.extensionIndex ?? 0)),
         policyVersion: textOrNull(row.policyVersion),
+        method: knownMethod(row.method) ?? knownMethod(type),
       };
     });
 

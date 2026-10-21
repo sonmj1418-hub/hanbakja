@@ -28,9 +28,9 @@ iOS는 다른 앱을 닫게 해 주지 않습니다. 홈 화면에 추가해도 
 
 디버그 APK입니다. Play 스토어용이 아니라, 휴대폰에 직접 설치하는 파일입니다.
 
-- 받는 주소: https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.7.0/hanbakja-debug.apk
+- 받는 주소: https://github.com/sonmj1418-hub/hanbakja/releases/download/v0.7.1/hanbakja-debug.apk
 - 파일 위치: `release/hanbakja-debug.apk`
-- 크기: 8,895,884바이트 (약 8.5MB)
+- 크기: 8,895,808바이트 (약 8.5MB)
 - 패키지 이름: `app.hanbakja.shorts`
 
 1. 휴대폰 브라우저에서 위 APK 주소를 엽니다.

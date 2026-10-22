@@ -1,8 +1,11 @@
 -- ShortsAI 사용 집계. 설치마다 install_id가 다르고, 줄은 이 세 표를 같이 쓴다.
 -- event_id는 설치 안에서만이 아니라 표 전체에서 유일해서, 다시 보내도 줄이 늘지 않는다.
 --
--- publishable 키(anon)는 INSERT와, 요청 헤더 x-install-id와 같은 install_id의 DELETE만 할 수 있다.
+-- publishable 키(anon)는 INSERT와, 요청 헤더 x-install-id와 같은 install_id의 삭제만 할 수 있다.
+-- 표에 직접 DELETE 하면 PostgREST가 SELECT 권한을 요구한다. 그 권한은 주지 않고,
+-- public.delete_own_usage()가 헤더와 같은 install_id만 지운다.
 -- anon에게 SELECT 권한과 SELECT 정책은 없다. 다른 설치의 줄은 읽지 못한다.
+-- 앱은 on_conflict upsert를 쓰지 않는다. 그 요청도 SELECT 권한 없이 거절된다.
 -- 소유자는 Supabase 대시보드(Table Editor 또는 SQL)에서 service_role로 모든 설치를 본다.
 -- service_role은 RLS를 우회한다. 예: select * from public.sessions order by started_at;
 -- service_role 키는 앱에 넣지 않는다.
@@ -141,3 +144,26 @@ create policy lock_attempts_delete_own
   for delete
   to anon, authenticated
   using (install_id = public.usage_install_id());
+
+-- 표 DELETE는 PostgREST가 SELECT를 요구한다. 이 함수는 소유자 권한으로
+-- 헤더 x-install-id와 같은 줄만 지우고, 읽기 결과는 돌려주지 않는다.
+create or replace function public.delete_own_usage()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  install text := public.usage_install_id();
+begin
+  if install is null then
+    raise exception 'install id required' using errcode = '42501';
+  end if;
+  delete from public.sessions where install_id = install;
+  delete from public.interventions where install_id = install;
+  delete from public.lock_attempts where install_id = install;
+end;
+$$;
+
+revoke all on function public.delete_own_usage() from public;
+grant execute on function public.delete_own_usage() to anon, authenticated, service_role;

@@ -345,16 +345,15 @@ export async function deleteInstallRows(
   fetchImpl: FetchLike = fetch,
 ): Promise<boolean> {
   if (!isServerConfigured(config) || !isUuid(installId)) return false;
-  const query = `?install_id=eq.${encodeURIComponent(installId)}`;
+  // 표 DELETE는 PostgREST가 SELECT 권한까지 검사한다. anon에게 SELECT를 주지 않으므로
+  // 헤더의 install_id만 지우는 함수를 호출한다.
   try {
-    for (const table of ["sessions", "interventions", "lock_attempts"]) {
-      const response = await fetchImpl(restUrl(config.url, table, query), {
-        method: "DELETE",
-        headers: authHeaders(config, installId, "return=minimal"),
-      });
-      if (!response.ok) return false;
-    }
-    return true;
+    const response = await fetchImpl(restUrl(config.url, "rpc/delete_own_usage"), {
+      method: "POST",
+      headers: authHeaders(config, installId, "return=minimal"),
+      body: "{}",
+    });
+    return response.ok;
   } catch {
     return false;
   }
@@ -369,9 +368,11 @@ async function postTable(
 ): Promise<boolean> {
   if (rows.length === 0) return true;
   try {
-    const response = await fetchImpl(restUrl(config.url, table, "?on_conflict=event_id"), {
+    // on_conflict upsert는 anon의 SELECT를 요구해서 publishable 키로 거절된다.
+    // 기본키에 그냥 넣고, 같은 event_id면 409를 이미 받은 줄로 본다.
+    const response = await fetchImpl(restUrl(config.url, table), {
       method: "POST",
-      headers: authHeaders(config, installId, "resolution=ignore-duplicates,return=minimal"),
+      headers: authHeaders(config, installId, "return=minimal"),
       body: JSON.stringify(rows),
     });
     return response.ok || response.status === 409;

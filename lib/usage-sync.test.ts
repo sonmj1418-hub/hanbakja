@@ -81,7 +81,13 @@ function lock(): LockAttempt {
   };
 }
 
-type Call = { url: string; method: string; body: unknown; installId: string | null };
+type Call = {
+  url: string;
+  method: string;
+  body: unknown;
+  installId: string | null;
+  prefer: string | null;
+};
 
 function fakeFetch(calls: Call[], status = 201) {
   return async (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => {
@@ -90,6 +96,7 @@ function fakeFetch(calls: Call[], status = 201) {
       method: init?.method ?? "GET",
       body: init?.body ? JSON.parse(init.body) : null,
       installId: init?.headers?.["x-install-id"] ?? null,
+      prefer: init?.headers?.Prefer ?? null,
     });
     return { ok: status >= 200 && status < 300, status };
   };
@@ -159,9 +166,11 @@ describe("usage sync", () => {
     assert.equal(flushed.sent.length, 3);
     const posts = calls.filter((call) => call.method === "POST");
     assert.equal(posts.length, 3);
-    const sessionBody = posts.find((call) => call.url.endsWith("/sessions?on_conflict=event_id"))?.body as Record<string, unknown>[];
-    const interventionBody = posts.find((call) => call.url.includes("/interventions?"))?.body as Record<string, unknown>[];
-    const lockBody = posts.find((call) => call.url.includes("/lock_attempts?"))?.body as Record<string, unknown>[];
+    assert.equal(posts.every((call) => !call.url.includes("on_conflict")), true);
+    assert.equal(posts.every((call) => call.prefer === "return=minimal"), true);
+    const sessionBody = posts.find((call) => call.url.endsWith("/sessions"))?.body as Record<string, unknown>[];
+    const interventionBody = posts.find((call) => call.url.endsWith("/interventions"))?.body as Record<string, unknown>[];
+    const lockBody = posts.find((call) => call.url.endsWith("/lock_attempts"))?.body as Record<string, unknown>[];
     assert.deepEqual(Object.keys(sessionBody[0]).sort(), [
       "clip_count",
       "duration_sec",
@@ -223,6 +232,18 @@ describe("usage sync", () => {
     assert.equal(again.sessions.length, 0);
     const open = enqueueOps(emptyOutbox(), INSTALL, [{ kind: "session", row: session() }], SESSION_ID, true);
     assert.equal(open.sessions.length, 0);
+    const conflictCalls: Call[] = [];
+    const conflicted = await flushOutbox(twice, {
+      config,
+      installId: INSTALL,
+      enabled: true,
+      fetchImpl: fakeFetch(conflictCalls, 409),
+    });
+    assert.equal(conflictCalls.length, 1);
+    assert.equal(conflictCalls[0].url.endsWith("/sessions"), true);
+    assert.equal(conflictCalls[0].url.includes("on_conflict"), false);
+    assert.equal(conflicted.sessions.length, 0);
+    assert.equal(conflicted.sent.includes(SESSION_ID), true);
     const waiting = readIntervention({ ...intervention(), reenteredWithin30: null, outcome: "exit" });
     assert.ok(waiting);
     assert.equal(toInterventionUpload(waiting, INSTALL), null);
@@ -272,5 +293,32 @@ describe("usage sync", () => {
     assert.equal(sql.includes("grant insert, delete on table public.sessions to anon, authenticated"), true);
     assert.equal(sql.includes("sessions_delete_own"), true);
     assert.equal(sql.includes("usage_install_id"), true);
+    assert.equal(sql.includes("delete_own_usage"), true);
+    assert.equal(sql.includes("security definer"), true);
+    assert.equal(sql.includes("grant execute on function public.delete_own_usage() to anon, authenticated, service_role"), true);
+  });
+
+  it("reset delete calls the header-scoped function", async () => {
+    const calls: Call[] = [];
+    const queued = outboxAfterReset(
+      {
+        ...emptyOutbox(),
+        sent: [SESSION_ID],
+      },
+      { configured: true, deleteSucceeded: false },
+    );
+    const flushed = await flushOutbox(queued, {
+      config,
+      installId: INSTALL,
+      enabled: true,
+      fetchImpl: fakeFetch(calls),
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, "POST");
+    assert.equal(calls[0].url.endsWith("/rpc/delete_own_usage"), true);
+    assert.equal(calls[0].installId, INSTALL);
+    assert.deepEqual(calls[0].body, {});
+    assert.equal(flushed.pendingDelete, false);
+    assert.equal(calls.some((call) => call.method === "DELETE"), false);
   });
 });
